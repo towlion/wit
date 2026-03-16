@@ -11,7 +11,7 @@ from slowapi.util import get_remote_address
 
 from app.routers import (
     activity, attachments, auth, custom_fields, invites, labels,
-    notifications, projects, search, states, webhooks, work_items, workspaces,
+    notifications, profile, projects, search, states, webhooks, work_items, workspaces,
 )
 
 # Configure structured JSON logging
@@ -60,6 +60,7 @@ async def log_requests(request: Request, call_next):
 
 
 app.include_router(auth.router, prefix="/api")
+app.include_router(profile.router, prefix="/api")
 app.include_router(workspaces.router, prefix="/api")
 app.include_router(projects.router, prefix="/api")
 app.include_router(work_items.router, prefix="/api")

@@ -29,6 +29,17 @@ class UserResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+# --- Profile ---
+class ProfileUpdate(BaseModel):
+    display_name: str | None = None
+    email: EmailStr | None = None
+
+
+class PasswordChange(BaseModel):
+    current_password: str
+    new_password: str
+
+
 # --- Workspace ---
 class WorkspaceCreate(BaseModel):
     name: str

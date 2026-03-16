@@ -107,6 +107,13 @@ export default function Shell({ children }: { children: React.ReactNode }) {
                   <div className="text-[11px] text-[var(--text-muted)] truncate mt-0.5">{user.email}</div>
                 </div>
                 <div className="py-1">
+                  <Link
+                    href="/profile"
+                    onClick={() => setProfileOpen(false)}
+                    className="block px-3 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] transition-colors"
+                  >
+                    Profile
+                  </Link>
                   <button
                     onClick={() => { setProfileOpen(false); logout(); }}
                     className="w-full text-left px-3 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] hover:text-red-400 transition-colors cursor-pointer"
