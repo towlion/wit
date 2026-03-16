@@ -121,7 +121,7 @@ All endpoints are under `/api`. Authentication via JWT Bearer token unless noted
 | **Webhooks** | CRUD configs | Outgoing webhook configuration per workspace |
 | **Health** | `GET /health` | Health check (no auth required) |
 
-See [docs/api.md](docs/api.md) for the full API reference.
+See [docs/api.md](docs/api.md) for the full API reference covering all 63 endpoints.
 
 ## Deployment
 
