@@ -32,7 +32,6 @@ class UserResponse(BaseModel):
 # --- Profile ---
 class ProfileUpdate(BaseModel):
     display_name: str | None = None
-    email: EmailStr | None = None
 
 
 class PasswordChange(BaseModel):

@@ -9,7 +9,6 @@ export default function ProfilePage() {
   const { user, refreshUser } = useAuth();
 
   const [displayName, setDisplayName] = useState(user?.display_name ?? "");
-  const [email, setEmail] = useState(user?.email ?? "");
   const [profileMsg, setProfileMsg] = useState("");
   const [profileErr, setProfileErr] = useState("");
   const [profileSaving, setProfileSaving] = useState(false);
@@ -27,7 +26,7 @@ export default function ProfilePage() {
     setProfileErr("");
     setProfileSaving(true);
     try {
-      await api.patch<User>("/profile", { display_name: displayName, email });
+      await api.patch<User>("/profile", { display_name: displayName });
       await refreshUser();
       setProfileMsg("Profile updated");
     } catch (err: unknown) {
@@ -91,10 +90,9 @@ export default function ProfilePage() {
             <label className="block text-sm text-[var(--text-secondary)] mb-1">Email</label>
             <input
               type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="w-full px-3 py-2 rounded-lg bg-[var(--bg-secondary)] border border-[var(--border)] text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/50 focus:border-[var(--accent)]"
+              value={user?.email ?? ""}
+              disabled
+              className="w-full px-3 py-2 rounded-lg bg-[var(--bg-secondary)] border border-[var(--border)] text-sm text-[var(--text-primary)] opacity-50 cursor-not-allowed"
             />
           </div>
         </div>

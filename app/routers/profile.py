@@ -16,11 +16,6 @@ def update_profile(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if body.email is not None and body.email != user.email:
-        existing = db.query(User).filter(User.email == body.email).first()
-        if existing:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already taken")
-        user.email = body.email
     if body.display_name is not None:
         user.display_name = body.display_name
     db.commit()
