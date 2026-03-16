@@ -13,12 +13,17 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: 'pip'
 
       - name: Run tests
         run: |
           pip install -r requirements.txt
           pip install pytest
-          pytest --tb=short || echo "No tests found, skipping"
+          if python -m pytest --collect-only -q 2>/dev/null | grep -q "test"; then
+            pytest --tb=short
+          else
+            echo "No tests found, skipping"
+          fi
 
       - name: Deploy to server
         uses: appleboy/ssh-action@v1
