@@ -217,8 +217,20 @@ Delete project and all associated items, labels, and states. **Min role:** admin
 
 List all non-archived work items. Ordered by position (for Kanban board display).
 
+**Query parameters:**
+
+| Param | Type | Description |
+|---|---|---|
+| `overdue` | bool | Filter to items past their due date (default: false) |
+| `due_before` | date | Items due on or before this date |
+| `due_after` | date | Items due on or after this date |
+
 ```bash
 curl https://wit.anulectra.com/api/workspaces/my-workspace/projects/web-app/items \
+  -H "Authorization: Bearer <token>"
+
+# Filter to overdue items
+curl "https://wit.anulectra.com/api/workspaces/my-workspace/projects/web-app/items?overdue=true" \
   -H "Authorization: Bearer <token>"
 ```
 
@@ -236,6 +248,7 @@ curl https://wit.anulectra.com/api/workspaces/my-workspace/projects/web-app/item
     "priority": "high",
     "position": "a0",
     "archived": false,
+    "due_date": "2026-04-01",
     "created_by_id": 1,
     "created_at": "2026-01-15T10:30:00Z",
     "assignees": [...],
@@ -252,10 +265,12 @@ Create a new work item. `item_number` auto-increments per project. Defaults to f
 curl -X POST https://wit.anulectra.com/api/workspaces/my-workspace/projects/web-app/items \
   -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
-  -d '{"title": "Fix login bug", "description": "Cannot log in after reset", "priority": "high"}'
+  -d '{"title": "Fix login bug", "description": "Cannot log in after reset", "priority": "high", "due_date": "2026-04-01"}'
 ```
 
 **Priority options:** `low`, `medium` (default), `high`, `urgent`
+
+**Optional fields:** `due_date` (ISO date, e.g. `"2026-04-01"`)
 
 **Response (201):** work item object with assignees and labels arrays.
 
@@ -267,7 +282,7 @@ Get work item details including assignees and labels.
 
 Update work item properties. All fields optional.
 
-**Body:** `{"title": "...", "description": "...", "status_id": 3, "priority": "low", "position": "b5", "archived": true}`
+**Body:** `{"title": "...", "description": "...", "status_id": 3, "priority": "low", "position": "b5", "archived": true, "due_date": "2026-04-01"}`
 
 ### DELETE /api/workspaces/{ws_slug}/projects/{project_slug}/items/{item_number}
 
@@ -367,6 +382,483 @@ Update state name, category, position, and/or color.
 
 Delete workflow state. **Response:** 204.
 
+## Activity & Comments
+
+### GET /api/workspaces/{ws_slug}/projects/{project_slug}/items/{item_number}/activity
+
+List activity events for a work item (status changes, priority changes, comments, etc.). Ordered newest first.
+
+**Query parameters:** `limit` (default 50, max 200), `offset` (default 0)
+
+```bash
+curl "https://wit.anulectra.com/api/workspaces/my-workspace/projects/web-app/items/1/activity?limit=20" \
+  -H "Authorization: Bearer <token>"
+```
+
+**Response (200):**
+
+```json
+[
+  {
+    "id": 10,
+    "work_item_id": 5,
+    "user_id": 1,
+    "event_type": "comment",
+    "body": "Looks good, merging now.",
+    "old_value": null,
+    "new_value": null,
+    "created_at": "2026-01-16T09:00:00Z",
+    "user": {"id": 1, "email": "user@example.com", "display_name": "Jane Doe", "created_at": "..."}
+  },
+  {
+    "id": 9,
+    "work_item_id": 5,
+    "user_id": 1,
+    "event_type": "status_change",
+    "body": null,
+    "old_value": "Open",
+    "new_value": "In Review",
+    "created_at": "2026-01-15T14:00:00Z",
+    "user": {"id": 1, "email": "user@example.com", "display_name": "Jane Doe", "created_at": "..."}
+  }
+]
+```
+
+**Event types:** `comment`, `status_change`, `priority_change`, `assignee_add`, `assignee_remove`, `label_add`, `label_remove`, `created`, `archived`
+
+### POST /api/workspaces/{ws_slug}/projects/{project_slug}/items/{item_number}/comments
+
+Create a comment on a work item.
+
+```bash
+curl -X POST https://wit.anulectra.com/api/workspaces/my-workspace/projects/web-app/items/1/comments \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"body": "This needs more investigation."}'
+```
+
+**Response (201):** activity event object with `event_type: "comment"`.
+
+### PATCH /api/workspaces/{ws_slug}/projects/{project_slug}/items/{item_number}/comments/{comment_id}
+
+Edit a comment. Only the comment author can edit.
+
+**Body:** `{"body": "Updated comment text"}`
+
+**Errors:** 403 — not comment author, 404 — comment not found.
+
+### DELETE /api/workspaces/{ws_slug}/projects/{project_slug}/items/{item_number}/comments/{comment_id}
+
+Delete a comment. Only the comment author can delete. **Response:** 204.
+
+**Errors:** 403 — not comment author, 404 — comment not found.
+
+## Search
+
+### GET /api/workspaces/{ws_slug}/projects/{project_slug}/search
+
+Full-text search across work item titles and descriptions using PostgreSQL `tsvector`.
+
+**Query parameters:**
+
+| Param | Type | Description |
+|---|---|---|
+| `q` | string | Search query (required, 1-200 chars) |
+| `limit` | int | Max results (default 20, max 50) |
+
+```bash
+curl "https://wit.anulectra.com/api/workspaces/my-workspace/projects/web-app/search?q=login+bug" \
+  -H "Authorization: Bearer <token>"
+```
+
+**Response (200):**
+
+```json
+[
+  {
+    "item": {
+      "id": 5,
+      "item_number": 1,
+      "title": "Fix login bug",
+      "...": "..."
+    },
+    "headline": "Fix <mark>login</mark> <mark>bug</mark>",
+    "rank": 0.075
+  }
+]
+```
+
+Results are ordered by relevance rank. The `headline` field contains the title with matching terms wrapped in `<mark>` tags.
+
+## Custom Fields
+
+### GET /api/workspaces/{ws_slug}/projects/{project_slug}/fields
+
+List all custom field definitions for a project. Ordered by position.
+
+```bash
+curl https://wit.anulectra.com/api/workspaces/my-workspace/projects/web-app/fields \
+  -H "Authorization: Bearer <token>"
+```
+
+**Response (200):**
+
+```json
+[
+  {
+    "id": 1,
+    "project_id": 1,
+    "name": "Story Points",
+    "field_type": "number",
+    "options": null,
+    "required": false,
+    "position": 0
+  },
+  {
+    "id": 2,
+    "project_id": 1,
+    "name": "Component",
+    "field_type": "select",
+    "options": {"choices": ["frontend", "backend", "infra"]},
+    "required": true,
+    "position": 1
+  }
+]
+```
+
+### POST /api/workspaces/{ws_slug}/projects/{project_slug}/fields
+
+Create a custom field definition. **Min role:** admin.
+
+```bash
+curl -X POST https://wit.anulectra.com/api/workspaces/my-workspace/projects/web-app/fields \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Story Points", "field_type": "number", "required": false, "position": 0}'
+```
+
+**Field types:** `text`, `number`, `date`, `select`, `checkbox`
+
+For `select` fields, provide options: `{"options": {"choices": ["opt1", "opt2"]}}`
+
+**Response (201):** field definition object. **Errors:** 409 — name already exists in project.
+
+### PATCH /api/workspaces/{ws_slug}/projects/{project_slug}/fields/{field_id}
+
+Update a field definition. **Min role:** admin.
+
+**Body:** `{"name": "...", "field_type": "...", "options": {...}, "required": true, "position": 2}`
+
+All fields optional.
+
+### DELETE /api/workspaces/{ws_slug}/projects/{project_slug}/fields/{field_id}
+
+Delete a field definition and all its values. **Min role:** admin. **Response:** 204.
+
+### GET /api/workspaces/{ws_slug}/projects/{project_slug}/items/{item_number}/fields
+
+Get all custom field values for a work item.
+
+```bash
+curl https://wit.anulectra.com/api/workspaces/my-workspace/projects/web-app/items/1/fields \
+  -H "Authorization: Bearer <token>"
+```
+
+**Response (200):**
+
+```json
+[
+  {
+    "id": 1,
+    "work_item_id": 5,
+    "field_id": 1,
+    "value_text": null,
+    "value_number": 8.0,
+    "value_date": null
+  }
+]
+```
+
+### PUT /api/workspaces/{ws_slug}/projects/{project_slug}/items/{item_number}/fields/{field_id}
+
+Set a custom field value on a work item. Creates or updates.
+
+```bash
+curl -X PUT https://wit.anulectra.com/api/workspaces/my-workspace/projects/web-app/items/1/fields/1 \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"value_number": 8}'
+```
+
+**Body fields (all optional, use the one matching the field type):**
+
+| Field | Type | For field types |
+|---|---|---|
+| `value_text` | string | text, select, checkbox |
+| `value_number` | float | number |
+| `value_date` | date | date |
+
+**Response (200):** field value object.
+
+### DELETE /api/workspaces/{ws_slug}/projects/{project_slug}/items/{item_number}/fields/{field_id}
+
+Clear a custom field value from a work item. **Response:** 204.
+
+## Attachments
+
+### GET /api/workspaces/{ws_slug}/projects/{project_slug}/items/{item_number}/attachments
+
+List all attachments on a work item. Ordered newest first.
+
+```bash
+curl https://wit.anulectra.com/api/workspaces/my-workspace/projects/web-app/items/1/attachments \
+  -H "Authorization: Bearer <token>"
+```
+
+**Response (200):**
+
+```json
+[
+  {
+    "id": 1,
+    "work_item_id": 5,
+    "filename": "screenshot.png",
+    "content_type": "image/png",
+    "size_bytes": 245000,
+    "storage_key": "wit-attachments/abc123/screenshot.png",
+    "uploaded_by_id": 1,
+    "created_at": "2026-01-16T09:00:00Z"
+  }
+]
+```
+
+### POST /api/workspaces/{ws_slug}/projects/{project_slug}/items/{item_number}/attachments
+
+Upload a file attachment. Max file size: 10 MB.
+
+```bash
+curl -X POST https://wit.anulectra.com/api/workspaces/my-workspace/projects/web-app/items/1/attachments \
+  -H "Authorization: Bearer <token>" \
+  -F "file=@screenshot.png"
+```
+
+**Response (201):** attachment object. **Errors:** 413 — file too large.
+
+### GET /api/workspaces/{ws_slug}/projects/{project_slug}/items/{item_number}/attachments/{attachment_id}/download
+
+Download an attachment. Redirects (302) to a presigned S3 URL.
+
+```bash
+curl -L https://wit.anulectra.com/api/workspaces/my-workspace/projects/web-app/items/1/attachments/1/download \
+  -H "Authorization: Bearer <token>" \
+  -o screenshot.png
+```
+
+### DELETE /api/workspaces/{ws_slug}/projects/{project_slug}/items/{item_number}/attachments/{attachment_id}
+
+Delete an attachment. Only the uploader can delete. **Response:** 204.
+
+**Errors:** 403 — not the uploader, 404 — attachment not found.
+
+## Invitations
+
+### POST /api/workspaces/{ws_slug}/invites
+
+Create an invitation link. **Min role:** admin.
+
+```bash
+curl -X POST https://wit.anulectra.com/api/workspaces/my-workspace/invites \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"role": "member", "expires_hours": 72, "max_uses": 10}'
+```
+
+**Body:**
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `role` | string | `"member"` | Role for invited users (`member` or `guest`) |
+| `expires_hours` | int \| null | 72 | Hours until link expires (null = never) |
+| `max_uses` | int \| null | null | Max number of uses (null = unlimited) |
+
+**Response (201):**
+
+```json
+{
+  "id": 1,
+  "workspace_id": 1,
+  "token": "abc123...",
+  "role": "member",
+  "created_by_id": 1,
+  "expires_at": "2026-01-18T10:30:00Z",
+  "max_uses": 10,
+  "use_count": 0,
+  "created_at": "2026-01-15T10:30:00Z"
+}
+```
+
+Share the invite URL as: `https://wit.anulectra.com/invite/<token>`
+
+### GET /api/workspaces/{ws_slug}/invites
+
+List all invitation links for a workspace. **Min role:** admin.
+
+**Response (200):** array of invite objects.
+
+### DELETE /api/workspaces/{ws_slug}/invites/{invite_id}
+
+Revoke an invitation link. **Min role:** admin. **Response:** 204.
+
+### GET /api/invites/{token}
+
+Get public info about an invite link. **Auth required:** No.
+
+```bash
+curl https://wit.anulectra.com/api/invites/abc123...
+```
+
+**Response (200):**
+
+```json
+{
+  "workspace_name": "My Workspace",
+  "role": "member"
+}
+```
+
+**Errors:** 404 — not found, 410 — expired or max uses reached.
+
+### POST /api/invites/{token}/accept
+
+Accept an invitation and join the workspace.
+
+```bash
+curl -X POST https://wit.anulectra.com/api/invites/abc123.../accept \
+  -H "Authorization: Bearer <token>"
+```
+
+**Response (201):** `{"ok": true}`
+
+**Errors:** 409 — already a member, 410 — expired or max uses reached.
+
+## Notifications
+
+### GET /api/notifications
+
+List notifications for the current user. Ordered newest first.
+
+**Query parameters:**
+
+| Param | Type | Description |
+|---|---|---|
+| `read` | bool | Filter by read status (omit for all) |
+| `limit` | int | Max results (default 50, max 200) |
+| `offset` | int | Pagination offset (default 0) |
+
+```bash
+curl "https://wit.anulectra.com/api/notifications?read=false&limit=10" \
+  -H "Authorization: Bearer <token>"
+```
+
+**Response (200):**
+
+```json
+[
+  {
+    "id": 1,
+    "user_id": 2,
+    "work_item_id": 5,
+    "event_type": "comment",
+    "title": "New comment on #1: Fix login bug",
+    "body": "Jane Doe commented: Looks good, merging now.",
+    "read": false,
+    "created_at": "2026-01-16T09:00:00Z"
+  }
+]
+```
+
+Notifications are created automatically when someone comments on, changes status of, or otherwise modifies a work item you are assigned to or created (excluding your own actions).
+
+### GET /api/notifications/unread-count
+
+Get the count of unread notifications.
+
+**Response (200):**
+
+```json
+{"count": 3}
+```
+
+### PATCH /api/notifications/{notification_id}/read
+
+Mark a single notification as read.
+
+**Response (200):** `{"ok": true}`
+
+### POST /api/notifications/read-all
+
+Mark all notifications as read.
+
+**Response (200):** `{"ok": true}`
+
+## Webhooks
+
+### GET /api/workspaces/{ws_slug}/webhooks
+
+List all webhook configurations. **Min role:** admin.
+
+```bash
+curl https://wit.anulectra.com/api/workspaces/my-workspace/webhooks \
+  -H "Authorization: Bearer <token>"
+```
+
+**Response (200):**
+
+```json
+[
+  {
+    "id": 1,
+    "workspace_id": 1,
+    "url": "https://example.com/webhook",
+    "event_types": {"include": ["comment", "status_change"]},
+    "active": true
+  }
+]
+```
+
+### POST /api/workspaces/{ws_slug}/webhooks
+
+Create a webhook. **Min role:** admin.
+
+```bash
+curl -X POST https://wit.anulectra.com/api/workspaces/my-workspace/webhooks \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://example.com/webhook", "event_types": {"include": ["comment", "status_change"]}, "active": true}'
+```
+
+**Body:**
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `url` | string | required | Webhook endpoint URL |
+| `event_types` | object \| null | null | Filter events (null = all events) |
+| `active` | bool | true | Whether the webhook is enabled |
+
+**Response (201):** webhook config object.
+
+When an activity event occurs in the workspace, WIT sends a POST request to each active webhook URL with the event payload (5 second timeout).
+
+### PATCH /api/workspaces/{ws_slug}/webhooks/{webhook_id}
+
+Update a webhook configuration. **Min role:** admin.
+
+**Body:** `{"url": "...", "event_types": {...}, "active": false}` — all fields optional.
+
+### DELETE /api/workspaces/{ws_slug}/webhooks/{webhook_id}
+
+Delete a webhook. **Min role:** admin. **Response:** 204.
+
 ## Health Check
 
 ### GET /health
@@ -407,6 +899,8 @@ All errors return:
 | 403 | Forbidden (insufficient role) |
 | 404 | Resource not found |
 | 409 | Conflict (duplicate slug, email, or assignment) |
+| 410 | Gone (invite expired or max uses reached) |
+| 413 | Payload too large (file exceeds 10 MB) |
 
 ## Authentication Details
 
