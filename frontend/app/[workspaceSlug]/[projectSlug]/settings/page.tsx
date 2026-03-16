@@ -59,28 +59,30 @@ export default function ProjectSettingsPage() {
   }
 
   return (
-    <div className="p-6 max-w-2xl">
-      <h1 className="text-xl font-semibold mb-6">Project settings</h1>
+    <div className="p-6 max-w-2xl animate-fade-in">
+      <h1 className="text-xl font-semibold tracking-tight mb-6">Project settings</h1>
 
       <section className="mb-8">
-        <h2 className="text-sm font-medium text-[var(--text-secondary)] mb-3">Workflow states</h2>
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-3">Workflow states</h2>
         <div className="space-y-2 mb-4">
           {states.map((s) => (
             <div
               key={s.id}
-              className="flex items-center justify-between p-3 rounded-lg bg-[var(--bg-secondary)] border border-[var(--border)]"
+              className="flex items-center justify-between p-3.5 card-surface"
             >
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5">
                 <div
-                  className="w-3 h-3 rounded-full"
+                  className="w-3.5 h-3.5 rounded-full ring-2 ring-[var(--bg-secondary)]"
                   style={{ backgroundColor: s.color }}
                 />
-                <span className="text-sm">{s.name}</span>
-                <span className="text-xs text-[var(--text-muted)]">{s.category}</span>
+                <span className="text-sm font-medium">{s.name}</span>
+                <span className="text-[11px] px-2 py-0.5 rounded-full bg-[var(--bg-tertiary)] text-[var(--text-muted)] border border-[var(--border-subtle)]">
+                  {s.category}
+                </span>
               </div>
               <button
                 onClick={() => deleteState(s.id)}
-                className="text-xs text-red-400 hover:text-red-300"
+                className="text-xs text-red-400/70 hover:text-red-400 transition-colors"
               >
                 Delete
               </button>
@@ -94,12 +96,12 @@ export default function ProjectSettingsPage() {
             onChange={(e) => setNewStateName(e.target.value)}
             placeholder="State name"
             required
-            className="flex-1 px-3 py-2 rounded-lg bg-[var(--bg-tertiary)] border border-[var(--border)] text-sm focus:border-[var(--accent)] focus:outline-none"
+            className="input-base flex-1"
           />
           <select
             value={newStateCategory}
             onChange={(e) => setNewStateCategory(e.target.value)}
-            className="px-3 py-2 rounded-lg bg-[var(--bg-tertiary)] border border-[var(--border)] text-sm"
+            className="input-base w-auto"
           >
             <option value="todo">Todo</option>
             <option value="in_progress">In Progress</option>
@@ -109,35 +111,34 @@ export default function ProjectSettingsPage() {
             type="color"
             value={newStateColor}
             onChange={(e) => setNewStateColor(e.target.value)}
-            className="w-10 h-9 rounded border border-[var(--border)] bg-transparent cursor-pointer"
+            className="w-11 h-11 rounded-xl border border-[var(--border)] bg-[var(--bg-tertiary)] cursor-pointer p-1"
           />
-          <button
-            type="submit"
-            className="px-4 py-2 rounded-lg bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-sm transition"
-          >
+          <button type="submit" className="btn-primary">
             Add
           </button>
         </form>
       </section>
 
+      <div className="h-px bg-[var(--border)] mb-8" />
+
       <section>
-        <h2 className="text-sm font-medium text-[var(--text-secondary)] mb-3">Labels</h2>
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-3">Labels</h2>
         <div className="space-y-2 mb-4">
           {labels.map((l) => (
             <div
               key={l.id}
-              className="flex items-center justify-between p-3 rounded-lg bg-[var(--bg-secondary)] border border-[var(--border)]"
+              className="flex items-center justify-between p-3.5 card-surface"
             >
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5">
                 <div
-                  className="w-3 h-3 rounded-full"
+                  className="w-3.5 h-3.5 rounded-full ring-2 ring-[var(--bg-secondary)]"
                   style={{ backgroundColor: l.color }}
                 />
-                <span className="text-sm">{l.name}</span>
+                <span className="text-sm font-medium">{l.name}</span>
               </div>
               <button
                 onClick={() => deleteLabel(l.id)}
-                className="text-xs text-red-400 hover:text-red-300"
+                className="text-xs text-red-400/70 hover:text-red-400 transition-colors"
               >
                 Delete
               </button>
@@ -151,18 +152,15 @@ export default function ProjectSettingsPage() {
             onChange={(e) => setNewLabelName(e.target.value)}
             placeholder="Label name"
             required
-            className="flex-1 px-3 py-2 rounded-lg bg-[var(--bg-tertiary)] border border-[var(--border)] text-sm focus:border-[var(--accent)] focus:outline-none"
+            className="input-base flex-1"
           />
           <input
             type="color"
             value={newLabelColor}
             onChange={(e) => setNewLabelColor(e.target.value)}
-            className="w-10 h-9 rounded border border-[var(--border)] bg-transparent cursor-pointer"
+            className="w-11 h-11 rounded-xl border border-[var(--border)] bg-[var(--bg-tertiary)] cursor-pointer p-1"
           />
-          <button
-            type="submit"
-            className="px-4 py-2 rounded-lg bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-sm transition"
-          >
+          <button type="submit" className="btn-primary">
             Add
           </button>
         </form>

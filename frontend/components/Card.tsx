@@ -3,11 +3,18 @@
 import { useDraggable } from "@dnd-kit/core";
 import type { WorkItem } from "@/lib/types";
 
+const PRIORITY_COLORS: Record<string, string> = {
+  urgent: "#ef4444",
+  high: "#f97316",
+  medium: "#6366f1",
+  low: "#71717a",
+};
+
 const PRIORITY_STYLES: Record<string, string> = {
-  urgent: "bg-red-500/20 text-red-400",
-  high: "bg-orange-500/20 text-orange-400",
-  medium: "bg-blue-500/20 text-blue-400",
-  low: "bg-gray-500/20 text-gray-400",
+  urgent: "bg-red-500/15 text-red-400 border-red-500/20",
+  high: "bg-orange-500/15 text-orange-400 border-orange-500/20",
+  medium: "bg-indigo-500/15 text-indigo-400 border-indigo-500/20",
+  low: "bg-zinc-500/15 text-zinc-400 border-zinc-500/20",
 };
 
 interface CardProps {
@@ -21,25 +28,37 @@ export default function Card({ item, overlay, onClick }: CardProps) {
     id: item.id,
   });
 
+  const priorityColor = PRIORITY_COLORS[item.priority] || PRIORITY_COLORS.medium;
+
   return (
     <div
       ref={overlay ? undefined : setNodeRef}
       {...(overlay ? {} : { ...attributes, ...listeners })}
       onClick={onClick}
-      className={`p-3 rounded-lg bg-[var(--bg-secondary)] border border-[var(--border)] cursor-pointer hover:border-[var(--border-hover)] transition select-none ${
+      className={`group relative p-3 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border)] cursor-pointer select-none transition-all duration-200 ${
         isDragging ? "opacity-30" : ""
-      } ${overlay ? "shadow-xl rotate-2 scale-105" : ""}`}
+      } ${
+        overlay
+          ? "shadow-2xl shadow-black/40 rotate-2 scale-105 border-[var(--accent)]/30"
+          : "hover:border-[var(--border-hover)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.2)] hover:-translate-y-0.5"
+      }`}
     >
-      <div className="flex items-start gap-2">
-        <span className="text-[10px] text-[var(--text-muted)] font-mono shrink-0 mt-0.5">
+      {/* Priority stripe on left edge */}
+      <div
+        className="absolute left-0 top-3 bottom-3 w-[3px] rounded-full"
+        style={{ backgroundColor: priorityColor }}
+      />
+
+      <div className="flex items-start gap-2 pl-2">
+        <span className="text-[10px] text-[var(--text-muted)] font-mono shrink-0 mt-0.5 opacity-60">
           #{item.item_number}
         </span>
         <span className="text-sm leading-snug flex-1">{item.title}</span>
       </div>
 
-      <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+      <div className="flex items-center gap-1.5 mt-2.5 pl-2 flex-wrap">
         <span
-          className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+          className={`text-[10px] px-1.5 py-0.5 rounded-md font-medium border ${
             PRIORITY_STYLES[item.priority] || PRIORITY_STYLES.medium
           }`}
         >
@@ -49,18 +68,18 @@ export default function Card({ item, overlay, onClick }: CardProps) {
         {item.labels.map((label) => (
           <span
             key={label.id}
-            className="w-2 h-2 rounded-full shrink-0"
+            className="w-2 h-2 rounded-full shrink-0 ring-1 ring-black/10"
             style={{ backgroundColor: label.color }}
             title={label.name}
           />
         ))}
 
         {item.assignees.length > 0 && (
-          <div className="flex -space-x-1 ml-auto">
+          <div className="flex -space-x-1.5 ml-auto">
             {item.assignees.slice(0, 3).map((a) => (
               <div
                 key={a.id}
-                className="w-5 h-5 rounded-full bg-[var(--accent)] flex items-center justify-center text-[9px] text-white font-medium border border-[var(--bg-secondary)]"
+                className="w-5 h-5 rounded-full bg-gradient-to-br from-indigo-500/80 to-violet-500/80 flex items-center justify-center text-[9px] text-white font-medium border-2 border-[var(--bg-secondary)]"
                 title={a.display_name}
               >
                 {a.display_name[0].toUpperCase()}

@@ -61,18 +61,21 @@ export default function ProjectBoardPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="animate-pulse text-[var(--text-muted)]">Loading board...</div>
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 animate-pulse" />
+          <span className="text-sm text-[var(--text-muted)]">Loading board...</span>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between px-4 py-2 border-b border-[var(--border)] shrink-0">
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-[var(--border)] shrink-0 bg-[var(--bg-primary)]/50 backdrop-blur-sm">
         <FilterBar filters={filters} onChange={setFilters} labels={labels} />
         <Link
           href={`/${wsSlug}/${projectSlug}/settings`}
-          className="text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition"
+          className="text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors px-2.5 py-1.5 rounded-lg hover:bg-[var(--bg-tertiary)]"
         >
           Settings
         </Link>

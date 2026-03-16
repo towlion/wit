@@ -29,26 +29,28 @@ export default function QuickCreate({ onSubmit }: QuickCreateProps) {
     return (
       <button
         onClick={() => setActive(true)}
-        className="w-full text-left text-sm text-[var(--text-muted)] hover:text-[var(--text-secondary)] px-3 py-2 rounded-lg hover:bg-[var(--bg-secondary)] transition"
+        className="w-full text-left text-sm text-[var(--text-muted)] hover:text-[var(--text-secondary)] px-3 py-2.5 rounded-xl border border-dashed border-[var(--border)] hover:border-[var(--border-hover)] hover:bg-[var(--bg-secondary)]/50 transition-all duration-200"
       >
-        + Add item
+        <span className="opacity-70">+</span> Add item
       </button>
     );
   }
 
   return (
-    <input
-      autoFocus
-      type="text"
-      value={title}
-      onChange={(e) => setTitle(e.target.value)}
-      onKeyDown={handleKeyDown}
-      onBlur={() => {
-        if (!title.trim()) setActive(false);
-      }}
-      disabled={submitting}
-      placeholder="Enter title..."
-      className="w-full px-3 py-2 rounded-lg bg-[var(--bg-secondary)] border border-[var(--accent)] text-sm focus:outline-none"
-    />
+    <div className="animate-fade-in">
+      <input
+        autoFocus
+        type="text"
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        onKeyDown={handleKeyDown}
+        onBlur={() => {
+          if (!title.trim()) setActive(false);
+        }}
+        disabled={submitting}
+        placeholder="Enter title, press Enter..."
+        className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-secondary)] border border-[var(--accent)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent-glow)] shadow-[0_0_12px_var(--accent-glow)] transition-all"
+      />
+    </div>
   );
 }

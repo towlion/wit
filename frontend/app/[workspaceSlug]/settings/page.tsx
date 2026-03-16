@@ -41,33 +41,47 @@ export default function WorkspaceSettingsPage() {
   }
 
   if (!workspace) {
-    return <div className="p-6 text-[var(--text-muted)]">Loading...</div>;
+    return (
+      <div className="p-6">
+        <div className="h-8 w-48 skeleton mb-6" />
+        <div className="space-y-3">
+          {[1, 2].map((i) => (
+            <div key={i} className="h-16 skeleton" />
+          ))}
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="p-6 max-w-2xl">
-      <h1 className="text-xl font-semibold mb-6">Workspace settings</h1>
+    <div className="p-6 max-w-2xl animate-fade-in">
+      <h1 className="text-xl font-semibold tracking-tight mb-6">Workspace settings</h1>
 
       <section className="mb-8">
-        <h2 className="text-sm font-medium text-[var(--text-secondary)] mb-3">Members</h2>
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-3">Members</h2>
         <div className="space-y-2 mb-4">
           {workspace.members.map((m: Member) => (
             <div
               key={m.user_id}
-              className="flex items-center justify-between p-3 rounded-lg bg-[var(--bg-secondary)] border border-[var(--border)]"
+              className="flex items-center justify-between p-3.5 card-surface"
             >
-              <div>
-                <span className="text-sm">{m.display_name}</span>
-                <span className="text-xs text-[var(--text-muted)] ml-2">{m.email}</span>
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500/80 to-violet-500/80 flex items-center justify-center text-[11px] text-white font-semibold shrink-0">
+                  {m.display_name[0].toUpperCase()}
+                </div>
+                <div>
+                  <span className="text-sm font-medium">{m.display_name}</span>
+                  <span className="text-xs text-[var(--text-muted)] ml-2">{m.email}</span>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs px-2 py-0.5 rounded bg-[var(--bg-tertiary)] text-[var(--text-muted)]">
+              <div className="flex items-center gap-2.5">
+                <span className="text-[11px] px-2.5 py-1 rounded-full bg-[var(--bg-tertiary)] text-[var(--text-muted)] font-medium border border-[var(--border-subtle)]">
                   {m.role}
                 </span>
                 {m.role !== "owner" && (
                   <button
                     onClick={() => removeMember(m.user_id)}
-                    className="text-xs text-red-400 hover:text-red-300"
+                    className="text-xs text-red-400/70 hover:text-red-400 transition-colors"
                   >
                     Remove
                   </button>
@@ -78,7 +92,10 @@ export default function WorkspaceSettingsPage() {
         </div>
 
         {error && (
-          <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-2 rounded-lg mb-4 text-sm">
+          <div className="flex items-center gap-2 bg-[var(--danger-subtle)] border border-red-500/20 text-red-400 px-4 py-2.5 rounded-xl mb-4 text-sm animate-fade-in">
+            <svg className="w-4 h-4 shrink-0" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M8 1a7 7 0 100 14A7 7 0 008 1zm-.75 4.75a.75.75 0 011.5 0v3a.75.75 0 01-1.5 0v-3zm.75 6a.75.75 0 110-1.5.75.75 0 010 1.5z" />
+            </svg>
             {error}
           </div>
         )}
@@ -90,21 +107,18 @@ export default function WorkspaceSettingsPage() {
             onChange={(e) => setEmail(e.target.value)}
             placeholder="Email address"
             required
-            className="flex-1 px-3 py-2 rounded-lg bg-[var(--bg-tertiary)] border border-[var(--border)] focus:border-[var(--accent)] focus:outline-none text-sm"
+            className="input-base flex-1"
           />
           <select
             value={role}
             onChange={(e) => setRole(e.target.value)}
-            className="px-3 py-2 rounded-lg bg-[var(--bg-tertiary)] border border-[var(--border)] text-sm"
+            className="input-base w-auto"
           >
             <option value="member">Member</option>
             <option value="admin">Admin</option>
             <option value="guest">Guest</option>
           </select>
-          <button
-            type="submit"
-            className="px-4 py-2 rounded-lg bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-sm transition"
-          >
+          <button type="submit" className="btn-primary">
             Add
           </button>
         </form>
