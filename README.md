@@ -87,6 +87,10 @@ For full self-hosting instructions, see the platform documentation:
 - [Self-Hosting Guide](https://github.com/towlion/platform/blob/main/docs/self-hosting.md) — Fork model, server requirements, bootstrap process
 - [Deployment Tutorial](https://github.com/towlion/platform/blob/main/docs/tutorial.md) — Step-by-step walkthrough from fork to running app
 
+## API Documentation
+
+See [docs/api.md](docs/api.md) for the complete API reference covering all 41 endpoints across auth, workspaces, projects, work items, labels, and workflow states.
+
 ## License
 
 [MIT](LICENSE)
