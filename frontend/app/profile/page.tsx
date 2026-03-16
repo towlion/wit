@@ -65,6 +65,8 @@ export default function ProfilePage() {
     }
   }
 
+  const profileDirty = displayName !== (user?.display_name ?? "");
+
   if (!user) return null;
 
   return (
@@ -100,7 +102,7 @@ export default function ProfilePage() {
         {profileErr && <p className="text-sm text-red-400 mt-3">{profileErr}</p>}
         <button
           type="submit"
-          disabled={profileSaving}
+          disabled={profileSaving || !profileDirty}
           className="mt-4 px-4 py-2 rounded-lg bg-[var(--accent)] text-white text-sm font-medium hover:bg-[var(--accent-hover)] transition-colors disabled:opacity-50"
         >
           {profileSaving ? "Saving..." : "Save changes"}
