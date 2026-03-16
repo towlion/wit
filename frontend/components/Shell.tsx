@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
@@ -13,6 +13,8 @@ export default function Shell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const [workspaces, setWorkspaces] = useState<WorkspaceListItem[]>([]);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -25,6 +27,21 @@ export default function Shell({ children }: { children: React.ReactNode }) {
       api.get<WorkspaceListItem[]>("/workspaces").then(setWorkspaces);
     }
   }, [user]);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) setProfileOpen(false);
+    }
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setProfileOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, []);
 
   if (loading || !user) {
     return (
@@ -69,18 +86,37 @@ export default function Shell({ children }: { children: React.ReactNode }) {
 
         <div className="ml-auto flex items-center gap-3">
           <NotificationBell />
-          <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-500/80 to-violet-500/80 flex items-center justify-center text-[10px] text-white font-semibold shadow-sm">
-              {user.display_name[0].toUpperCase()}
-            </div>
-            <span className="text-sm text-[var(--text-secondary)] hidden sm:block">{user.display_name}</span>
+          <div ref={profileRef} className="relative">
+            <button
+              onClick={() => setProfileOpen(!profileOpen)}
+              className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-[var(--bg-tertiary)] transition-colors"
+            >
+              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-500/80 to-violet-500/80 flex items-center justify-center text-[10px] text-white font-semibold shadow-sm">
+                {user.display_name[0].toUpperCase()}
+              </div>
+              <span className="text-sm text-[var(--text-secondary)] hidden sm:block">{user.display_name}</span>
+              <svg className="w-3 h-3 text-[var(--text-muted)] hidden sm:block" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            {profileOpen && (
+              <div className="absolute right-0 top-full mt-2 w-56 bg-[var(--bg-primary)] border border-[var(--border)] rounded-xl shadow-2xl shadow-black/40 z-50 animate-fade-in overflow-hidden">
+                <div className="px-3 py-2.5 border-b border-[var(--border)]">
+                  <div className="text-sm font-medium text-[var(--text-primary)] truncate">{user.display_name}</div>
+                  <div className="text-[11px] text-[var(--text-muted)] truncate mt-0.5">{user.email}</div>
+                </div>
+                <div className="py-1">
+                  <button
+                    onClick={() => { setProfileOpen(false); logout(); }}
+                    className="w-full text-left px-3 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] hover:text-red-400 transition-colors cursor-pointer"
+                  >
+                    Sign out
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
-          <button
-            onClick={logout}
-            className="text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors px-2 py-1 rounded-md hover:bg-[var(--bg-tertiary)]"
-          >
-            Sign out
-          </button>
         </div>
       </header>
 
