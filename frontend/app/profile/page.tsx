@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
-import type { User } from "@/lib/types";
+import type { User, ApiToken, ApiTokenCreated } from "@/lib/types";
 
 export default function ProfilePage() {
   const { user, refreshUser } = useAuth();
@@ -19,6 +19,25 @@ export default function ProfilePage() {
   const [passwordMsg, setPasswordMsg] = useState("");
   const [passwordErr, setPasswordErr] = useState("");
   const [passwordSaving, setPasswordSaving] = useState(false);
+
+  const [tokens, setTokens] = useState<ApiToken[]>([]);
+  const [newTokenName, setNewTokenName] = useState("");
+  const [newTokenExpiry, setNewTokenExpiry] = useState("30");
+  const [createdToken, setCreatedToken] = useState<string | null>(null);
+  const [tokenCopied, setTokenCopied] = useState(false);
+  const [tokenErr, setTokenErr] = useState("");
+  const [tokenCreating, setTokenCreating] = useState(false);
+
+  const loadTokens = useCallback(async () => {
+    try {
+      const data = await api.get<ApiToken[]>("/profile/tokens");
+      setTokens(data);
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    loadTokens();
+  }, [loadTokens]);
 
   async function handleProfileSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -63,6 +82,47 @@ export default function ProfilePage() {
     } finally {
       setPasswordSaving(false);
     }
+  }
+
+  async function handleCreateToken(e: React.FormEvent) {
+    e.preventDefault();
+    setTokenErr("");
+    setCreatedToken(null);
+    setTokenCopied(false);
+    setTokenCreating(true);
+    try {
+      const data = await api.post<ApiTokenCreated>("/profile/tokens", {
+        name: newTokenName,
+        expires_in_days: newTokenExpiry === "never" ? null : parseInt(newTokenExpiry),
+      });
+      setCreatedToken(data.token);
+      setNewTokenName("");
+      setNewTokenExpiry("30");
+      loadTokens();
+    } catch (err: unknown) {
+      setTokenErr(err instanceof Error ? err.message : "Failed to create token");
+    } finally {
+      setTokenCreating(false);
+    }
+  }
+
+  async function handleRevokeToken(tokenId: number) {
+    try {
+      await api.delete(`/profile/tokens/${tokenId}`);
+      loadTokens();
+    } catch {}
+  }
+
+  function handleCopyToken() {
+    if (createdToken) {
+      navigator.clipboard.writeText(createdToken);
+      setTokenCopied(true);
+    }
+  }
+
+  function formatDate(iso: string | null) {
+    if (!iso) return "Never";
+    return new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
   }
 
   const profileDirty = displayName !== (user?.display_name ?? "");
@@ -158,6 +218,113 @@ export default function ProfilePage() {
             {passwordSaving ? "Changing..." : "Change password"}
           </button>
         </form>
+      </div>
+
+      <div className="border-t border-[var(--border)] pt-8 mt-8">
+        <h2 className="text-sm font-medium text-[var(--text-secondary)] uppercase tracking-wider mb-4">
+          API Tokens
+        </h2>
+
+        {createdToken && (
+          <div className="mb-4 p-3 rounded-lg bg-green-500/10 border border-green-500/30">
+            <p className="text-sm text-green-400 font-medium mb-2">
+              Token created — copy it now. You won&apos;t be able to see it again.
+            </p>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 text-xs bg-[var(--bg-secondary)] px-3 py-2 rounded font-mono text-[var(--text-primary)] overflow-x-auto">
+                {createdToken}
+              </code>
+              <button
+                onClick={handleCopyToken}
+                className="px-3 py-2 rounded-lg bg-[var(--accent)] text-white text-xs font-medium hover:bg-[var(--accent-hover)] transition-colors shrink-0"
+              >
+                {tokenCopied ? "Copied!" : "Copy"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        <form onSubmit={handleCreateToken} className="mb-6">
+          <div className="flex items-end gap-3">
+            <div className="flex-1">
+              <label className="block text-sm text-[var(--text-secondary)] mb-1">Token name</label>
+              <input
+                type="text"
+                value={newTokenName}
+                onChange={(e) => setNewTokenName(e.target.value)}
+                placeholder="e.g. CI deploy"
+                required
+                className="w-full px-3 py-2 rounded-lg bg-[var(--bg-secondary)] border border-[var(--border)] text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/50 focus:border-[var(--accent)]"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-[var(--text-secondary)] mb-1">Expires</label>
+              <select
+                value={newTokenExpiry}
+                onChange={(e) => setNewTokenExpiry(e.target.value)}
+                className="px-3 py-2 rounded-lg bg-[var(--bg-secondary)] border border-[var(--border)] text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/50 focus:border-[var(--accent)]"
+              >
+                <option value="7">7 days</option>
+                <option value="30">30 days</option>
+                <option value="90">90 days</option>
+                <option value="365">1 year</option>
+                <option value="never">No expiry</option>
+              </select>
+            </div>
+            <button
+              type="submit"
+              disabled={tokenCreating}
+              className="px-4 py-2 rounded-lg bg-[var(--accent)] text-white text-sm font-medium hover:bg-[var(--accent-hover)] transition-colors disabled:opacity-50"
+            >
+              {tokenCreating ? "Creating..." : "Create token"}
+            </button>
+          </div>
+          {tokenErr && <p className="text-sm text-red-400 mt-2">{tokenErr}</p>}
+        </form>
+
+        {tokens.length > 0 && (
+          <div className="rounded-lg border border-[var(--border)] overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-[var(--bg-secondary)] text-[var(--text-secondary)]">
+                  <th className="text-left px-3 py-2 font-medium">Name</th>
+                  <th className="text-left px-3 py-2 font-medium">Token</th>
+                  <th className="text-left px-3 py-2 font-medium">Created</th>
+                  <th className="text-left px-3 py-2 font-medium">Last used</th>
+                  <th className="text-left px-3 py-2 font-medium">Expires</th>
+                  <th className="px-3 py-2"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {tokens.map((t) => (
+                  <tr key={t.id} className="border-t border-[var(--border)]">
+                    <td className="px-3 py-2 text-[var(--text-primary)]">{t.name}</td>
+                    <td className="px-3 py-2">
+                      <code className="text-xs text-[var(--text-secondary)] font-mono">
+                        {t.token_prefix}...
+                      </code>
+                    </td>
+                    <td className="px-3 py-2 text-[var(--text-secondary)]">{formatDate(t.created_at)}</td>
+                    <td className="px-3 py-2 text-[var(--text-secondary)]">{formatDate(t.last_used_at)}</td>
+                    <td className="px-3 py-2 text-[var(--text-secondary)]">{formatDate(t.expires_at)}</td>
+                    <td className="px-3 py-2 text-right">
+                      <button
+                        onClick={() => handleRevokeToken(t.id)}
+                        className="text-xs text-red-400 hover:text-red-300 transition-colors"
+                      >
+                        Revoke
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {tokens.length === 0 && (
+          <p className="text-sm text-[var(--text-secondary)]">No API tokens yet.</p>
+        )}
       </div>
     </div>
   );

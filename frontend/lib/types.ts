@@ -99,3 +99,16 @@ export interface Notification {
   read: boolean;
   created_at: string;
 }
+
+export interface ApiToken {
+  id: number;
+  name: string;
+  token_prefix: string;
+  expires_at: string | null;
+  last_used_at: string | null;
+  created_at: string;
+}
+
+export interface ApiTokenCreated extends ApiToken {
+  token: string;
+}

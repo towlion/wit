@@ -355,3 +355,31 @@ class WebhookConfigResponse(BaseModel):
     active: bool
 
     model_config = {"from_attributes": True}
+
+
+# --- API Tokens ---
+class ApiTokenCreate(BaseModel):
+    name: str
+    expires_in_days: int | None = 30
+
+
+class ApiTokenCreateResponse(BaseModel):
+    id: int
+    name: str
+    token: str
+    token_prefix: str
+    expires_at: datetime | None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class ApiTokenResponse(BaseModel):
+    id: int
+    name: str
+    token_prefix: str
+    expires_at: datetime | None
+    last_used_at: datetime | None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
