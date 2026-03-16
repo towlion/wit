@@ -5,6 +5,23 @@ import { useParams } from "next/navigation";
 import { api } from "@/lib/api";
 import type { Workspace, Member } from "@/lib/types";
 
+interface Invite {
+  id: number;
+  token: string;
+  role: string;
+  expires_at: string | null;
+  max_uses: number | null;
+  use_count: number;
+  created_at: string;
+}
+
+interface Webhook {
+  id: number;
+  url: string;
+  event_types: Record<string, unknown> | null;
+  active: boolean;
+}
+
 export default function WorkspaceSettingsPage() {
   const params = useParams();
   const wsSlug = params.workspaceSlug as string;
@@ -13,8 +30,19 @@ export default function WorkspaceSettingsPage() {
   const [role, setRole] = useState("member");
   const [error, setError] = useState("");
 
+  // Invites
+  const [invites, setInvites] = useState<Invite[]>([]);
+  const [inviteRole, setInviteRole] = useState("member");
+  const [copiedId, setCopiedId] = useState<number | null>(null);
+
+  // Webhooks
+  const [webhooks, setWebhooks] = useState<Webhook[]>([]);
+  const [webhookUrl, setWebhookUrl] = useState("");
+
   useEffect(() => {
     api.get<Workspace>(`/workspaces/${wsSlug}`).then(setWorkspace);
+    api.get<Invite[]>(`/workspaces/${wsSlug}/invites`).then(setInvites).catch(() => {});
+    api.get<Webhook[]>(`/workspaces/${wsSlug}/webhooks`).then(setWebhooks).catch(() => {});
   }, [wsSlug]);
 
   async function addMember(e: FormEvent) {
@@ -40,6 +68,37 @@ export default function WorkspaceSettingsPage() {
     }
   }
 
+  async function createInvite(e: FormEvent) {
+    e.preventDefault();
+    const invite = await api.post<Invite>(`/workspaces/${wsSlug}/invites`, { role: inviteRole });
+    setInvites([invite, ...invites]);
+  }
+
+  async function revokeInvite(id: number) {
+    await api.delete(`/workspaces/${wsSlug}/invites/${id}`);
+    setInvites(invites.filter((i) => i.id !== id));
+  }
+
+  function copyInviteLink(invite: Invite) {
+    const url = `${window.location.origin}/invite/${invite.token}`;
+    navigator.clipboard.writeText(url);
+    setCopiedId(invite.id);
+    setTimeout(() => setCopiedId(null), 2000);
+  }
+
+  async function addWebhook(e: FormEvent) {
+    e.preventDefault();
+    if (!webhookUrl.trim()) return;
+    const webhook = await api.post<Webhook>(`/workspaces/${wsSlug}/webhooks`, { url: webhookUrl });
+    setWebhooks([...webhooks, webhook]);
+    setWebhookUrl("");
+  }
+
+  async function deleteWebhook(id: number) {
+    await api.delete(`/workspaces/${wsSlug}/webhooks/${id}`);
+    setWebhooks(webhooks.filter((w) => w.id !== id));
+  }
+
   if (!workspace) {
     return (
       <div className="p-6">
@@ -57,14 +116,12 @@ export default function WorkspaceSettingsPage() {
     <div className="p-6 max-w-2xl animate-fade-in">
       <h1 className="text-xl font-semibold tracking-tight mb-6">Workspace settings</h1>
 
+      {/* Members */}
       <section className="mb-8">
         <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-3">Members</h2>
         <div className="space-y-2 mb-4">
           {workspace.members.map((m: Member) => (
-            <div
-              key={m.user_id}
-              className="flex items-center justify-between p-3.5 card-surface"
-            >
+            <div key={m.user_id} className="flex items-center justify-between p-3.5 card-surface">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500/80 to-violet-500/80 flex items-center justify-center text-[11px] text-white font-semibold shrink-0">
                   {m.display_name[0].toUpperCase()}
@@ -79,10 +136,7 @@ export default function WorkspaceSettingsPage() {
                   {m.role}
                 </span>
                 {m.role !== "owner" && (
-                  <button
-                    onClick={() => removeMember(m.user_id)}
-                    className="text-xs text-red-400/70 hover:text-red-400 transition-colors"
-                  >
+                  <button onClick={() => removeMember(m.user_id)} className="text-xs text-red-400/70 hover:text-red-400 transition-colors">
                     Remove
                   </button>
                 )}
@@ -101,26 +155,87 @@ export default function WorkspaceSettingsPage() {
         )}
 
         <form onSubmit={addMember} className="flex gap-2">
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="Email address"
-            required
-            className="input-base flex-1"
-          />
-          <select
-            value={role}
-            onChange={(e) => setRole(e.target.value)}
-            className="input-base w-auto"
-          >
+          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email address" required className="input-base flex-1" />
+          <select value={role} onChange={(e) => setRole(e.target.value)} className="input-base w-auto">
             <option value="member">Member</option>
             <option value="admin">Admin</option>
             <option value="guest">Guest</option>
           </select>
-          <button type="submit" className="btn-primary">
-            Add
-          </button>
+          <button type="submit" className="btn-primary">Add</button>
+        </form>
+      </section>
+
+      <div className="h-px bg-[var(--border)] mb-8" />
+
+      {/* Invite Links */}
+      <section className="mb-8">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-3">Invite links</h2>
+        <div className="space-y-2 mb-4">
+          {invites.map((inv) => (
+            <div key={inv.id} className="flex items-center justify-between p-3.5 card-surface">
+              <div className="flex items-center gap-3 min-w-0">
+                <span className="text-[11px] px-2.5 py-1 rounded-full bg-[var(--bg-tertiary)] text-[var(--text-muted)] font-medium border border-[var(--border-subtle)]">
+                  {inv.role}
+                </span>
+                <span className="text-xs text-[var(--text-muted)] font-mono truncate">
+                  ...{inv.token.slice(-12)}
+                </span>
+                <span className="text-[10px] text-[var(--text-muted)]">
+                  {inv.use_count} uses
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => copyInviteLink(inv)}
+                  className="text-xs text-[var(--accent)] hover:text-[var(--accent-hover)] transition-colors"
+                >
+                  {copiedId === inv.id ? "Copied!" : "Copy link"}
+                </button>
+                <button onClick={() => revokeInvite(inv.id)} className="text-xs text-red-400/70 hover:text-red-400 transition-colors">
+                  Revoke
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+        <form onSubmit={createInvite} className="flex gap-2">
+          <select value={inviteRole} onChange={(e) => setInviteRole(e.target.value)} className="input-base w-auto">
+            <option value="member">Member</option>
+            <option value="admin">Admin</option>
+            <option value="guest">Guest</option>
+          </select>
+          <button type="submit" className="btn-primary">Create invite</button>
+        </form>
+      </section>
+
+      <div className="h-px bg-[var(--border)] mb-8" />
+
+      {/* Webhooks */}
+      <section>
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-3">Webhooks</h2>
+        <div className="space-y-2 mb-4">
+          {webhooks.map((wh) => (
+            <div key={wh.id} className="flex items-center justify-between p-3.5 card-surface">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className={`w-2 h-2 rounded-full ${wh.active ? "bg-green-500" : "bg-zinc-500"}`} />
+                <span className="text-xs truncate font-mono">{wh.url}</span>
+              </div>
+              <button onClick={() => deleteWebhook(wh.id)} className="text-xs text-red-400/70 hover:text-red-400 transition-colors shrink-0 ml-2">
+                Delete
+              </button>
+            </div>
+          ))}
+        </div>
+        <form onSubmit={addWebhook} className="flex gap-2">
+          <input
+            type="url"
+            value={webhookUrl}
+            onChange={(e) => setWebhookUrl(e.target.value)}
+            placeholder="https://hooks.example.com/webhook"
+            required
+            className="input-base flex-1"
+          />
+          <button type="submit" className="btn-primary">Add</button>
         </form>
       </section>
     </div>

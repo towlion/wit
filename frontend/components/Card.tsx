@@ -65,6 +65,28 @@ export default function Card({ item, overlay, onClick }: CardProps) {
           {item.priority}
         </span>
 
+        {item.due_date && (() => {
+          const today = new Date().toISOString().split("T")[0];
+          const isOverdue = item.due_date < today;
+          const isToday = item.due_date === today;
+          return (
+            <span
+              className={`text-[10px] px-1.5 py-0.5 rounded-md font-medium border flex items-center gap-1 ${
+                isOverdue
+                  ? "bg-red-500/15 text-red-400 border-red-500/20"
+                  : isToday
+                  ? "bg-yellow-500/15 text-yellow-400 border-yellow-500/20"
+                  : "bg-zinc-500/10 text-zinc-400 border-zinc-500/20"
+              }`}
+            >
+              <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              {new Date(item.due_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+            </span>
+          );
+        })()}
+
         {item.labels.map((label) => (
           <span
             key={label.id}

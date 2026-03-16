@@ -66,6 +66,36 @@ export interface WorkItem {
   archived: boolean;
   created_by_id: number;
   created_at: string;
+  due_date: string | null;
   assignees: User[];
   labels: Label[];
+}
+
+export interface ActivityEvent {
+  id: number;
+  work_item_id: number;
+  user_id: number | null;
+  event_type: string;
+  body: string | null;
+  old_value: string | null;
+  new_value: string | null;
+  created_at: string;
+  user: User | null;
+}
+
+export interface SearchResult {
+  item: WorkItem;
+  headline: string;
+  rank: number;
+}
+
+export interface Notification {
+  id: number;
+  user_id: number;
+  work_item_id: number | null;
+  event_type: string;
+  title: string;
+  body: string;
+  read: boolean;
+  created_at: string;
 }

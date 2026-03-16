@@ -4,12 +4,42 @@ import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { api } from "@/lib/api";
 import type { WorkItem, WorkflowState } from "@/lib/types";
+import ActivityFeed from "./ActivityFeed";
+import AttachmentList from "./AttachmentList";
+import CustomFieldInput from "./CustomFieldInput";
+import FileUpload from "./FileUpload";
 
 interface CardDetailProps {
   item: WorkItem;
   basePath: string;
   onClose: () => void;
   onUpdate: (data: Partial<WorkItem>) => Promise<void>;
+}
+
+interface FieldDef {
+  id: number;
+  name: string;
+  field_type: string;
+  options: Record<string, unknown> | null;
+  required: boolean;
+  position: number;
+}
+
+interface FieldVal {
+  id: number;
+  work_item_id: number;
+  field_id: number;
+  value_text: string | null;
+  value_number: number | null;
+  value_date: string | null;
+}
+
+interface AttachmentItem {
+  id: number;
+  filename: string;
+  content_type: string;
+  size_bytes: number;
+  created_at: string;
 }
 
 const PRIORITIES = ["low", "medium", "high", "urgent"];
@@ -20,12 +50,29 @@ export default function CardDetail({ item, basePath, onClose, onUpdate }: CardDe
   const [priority, setPriority] = useState(item.priority);
   const [statusId, setStatusId] = useState(item.status_id);
   const [states, setStates] = useState<WorkflowState[]>([]);
+  const [dueDate, setDueDate] = useState(item.due_date || "");
   const [editingDesc, setEditingDesc] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  // Custom fields
+  const [fieldDefs, setFieldDefs] = useState<FieldDef[]>([]);
+  const [fieldValues, setFieldValues] = useState<Record<number, FieldVal>>({});
+
+  // Attachments
+  const [attachments, setAttachments] = useState<AttachmentItem[]>([]);
+
+  const itemPath = `${basePath}/items/${item.item_number}`;
+
   useEffect(() => {
     api.get<WorkflowState[]>(`${basePath}/states`).then(setStates);
-  }, [basePath]);
+    api.get<FieldDef[]>(`${basePath}/fields`).then(setFieldDefs);
+    api.get<FieldVal[]>(`${itemPath}/fields`).then((vals) => {
+      const map: Record<number, FieldVal> = {};
+      for (const v of vals) map[v.field_id] = v;
+      setFieldValues(map);
+    });
+    api.get<AttachmentItem[]>(`${itemPath}/attachments`).then(setAttachments);
+  }, [basePath, itemPath]);
 
   async function handleSave() {
     setSaving(true);
@@ -34,16 +81,33 @@ export default function CardDetail({ item, basePath, onClose, onUpdate }: CardDe
       description: description || null,
       priority,
       status_id: statusId,
-    });
+      due_date: dueDate || null,
+    } as Partial<WorkItem>);
     setSaving(false);
+  }
+
+  async function handleFieldChange(
+    fieldId: number,
+    data: { value_text?: string | null; value_number?: number | null; value_date?: string | null }
+  ) {
+    const val = await api.put<FieldVal>(`${itemPath}/fields/${fieldId}`, data);
+    setFieldValues((prev) => ({ ...prev, [fieldId]: val }));
+  }
+
+  async function handleUpload(file: File) {
+    const att = await api.upload<AttachmentItem>(`${itemPath}/attachments`, file);
+    setAttachments((prev) => [att, ...prev]);
+  }
+
+  async function handleDeleteAttachment(id: number) {
+    await api.delete(`${itemPath}/attachments/${id}`);
+    setAttachments((prev) => prev.filter((a) => a.id !== id));
   }
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
-      {/* Backdrop */}
       <div className="absolute inset-0 bg-black/60 animate-fade-in" />
 
-      {/* Panel */}
       <div
         className="relative w-full max-w-lg bg-[var(--bg-primary)] border-l border-[var(--border)] h-full overflow-y-auto animate-slide-in-right"
         onClick={(e) => e.stopPropagation()}
@@ -73,7 +137,6 @@ export default function CardDetail({ item, basePath, onClose, onUpdate }: CardDe
             placeholder="Item title"
           />
 
-          {/* Divider */}
           <div className="h-px bg-[var(--border)] mb-5" />
 
           {/* Fields */}
@@ -86,9 +149,7 @@ export default function CardDetail({ item, basePath, onClose, onUpdate }: CardDe
                 className="input-base py-2"
               >
                 {states.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
+                  <option key={s.id} value={s.id}>{s.name}</option>
                 ))}
               </select>
             </div>
@@ -100,15 +161,23 @@ export default function CardDetail({ item, basePath, onClose, onUpdate }: CardDe
                 className="input-base py-2"
               >
                 {PRIORITIES.map((p) => (
-                  <option key={p} value={p}>
-                    {p}
-                  </option>
+                  <option key={p} value={p}>{p}</option>
                 ))}
               </select>
             </div>
           </div>
 
-          {/* Divider */}
+          {/* Due date */}
+          <div className="mb-6">
+            <label className="block text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-2">Due date</label>
+            <input
+              type="date"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+              className="input-base py-2"
+            />
+          </div>
+
           <div className="h-px bg-[var(--border)] mb-5" />
 
           {/* Description */}
@@ -152,10 +221,7 @@ export default function CardDetail({ item, basePath, onClose, onUpdate }: CardDe
                 <label className="block text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-2.5">Assignees</label>
                 <div className="flex gap-2 flex-wrap">
                   {item.assignees.map((a) => (
-                    <span
-                      key={a.id}
-                      className="text-xs px-3 py-1.5 rounded-lg bg-[var(--bg-tertiary)] border border-[var(--border)] flex items-center gap-2"
-                    >
+                    <span key={a.id} className="text-xs px-3 py-1.5 rounded-lg bg-[var(--bg-tertiary)] border border-[var(--border)] flex items-center gap-2">
                       <div className="w-4 h-4 rounded-full bg-gradient-to-br from-indigo-500/80 to-violet-500/80 flex items-center justify-center text-[8px] text-white font-medium">
                         {a.display_name[0].toUpperCase()}
                       </div>
@@ -178,16 +244,9 @@ export default function CardDetail({ item, basePath, onClose, onUpdate }: CardDe
                     <span
                       key={l.id}
                       className="text-xs px-3 py-1.5 rounded-lg flex items-center gap-2 border"
-                      style={{
-                        backgroundColor: l.color + "15",
-                        color: l.color,
-                        borderColor: l.color + "30",
-                      }}
+                      style={{ backgroundColor: l.color + "15", color: l.color, borderColor: l.color + "30" }}
                     >
-                      <span
-                        className="w-2.5 h-2.5 rounded-full"
-                        style={{ backgroundColor: l.color }}
-                      />
+                      <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: l.color }} />
                       {l.name}
                     </span>
                   ))}
@@ -196,13 +255,58 @@ export default function CardDetail({ item, basePath, onClose, onUpdate }: CardDe
             </>
           )}
 
-          {/* Divider */}
+          {/* Custom Fields */}
+          {fieldDefs.length > 0 && (
+            <>
+              <div className="h-px bg-[var(--border)] mb-5" />
+              <div className="mb-6">
+                <label className="block text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-2.5">Custom fields</label>
+                <div className="space-y-3">
+                  {fieldDefs.map((f) => (
+                    <div key={f.id}>
+                      {f.field_type !== "checkbox" && (
+                        <label className="block text-[10px] text-[var(--text-muted)] mb-1">{f.name}</label>
+                      )}
+                      <CustomFieldInput
+                        field={f}
+                        value={fieldValues[f.id] || {}}
+                        onChange={handleFieldChange}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Attachments */}
+          <div className="h-px bg-[var(--border)] mb-5" />
+          <div className="mb-6">
+            <label className="block text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-2.5">Attachments</label>
+            <AttachmentList
+              attachments={attachments}
+              downloadUrl={(id) => `/api${itemPath}/attachments/${id}/download`}
+              onDelete={handleDeleteAttachment}
+            />
+            <div className="mt-2">
+              <FileUpload onUpload={handleUpload} />
+            </div>
+          </div>
+
           <div className="h-px bg-[var(--border)] mb-5" />
 
           {/* Save */}
-          <button onClick={handleSave} disabled={saving} className="btn-primary w-full">
+          <button onClick={handleSave} disabled={saving} className="btn-primary w-full mb-6">
             {saving ? "Saving..." : "Save changes"}
           </button>
+
+          <div className="h-px bg-[var(--border)] mb-5" />
+
+          {/* Activity */}
+          <div>
+            <label className="block text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-3">Activity</label>
+            <ActivityFeed basePath={basePath} itemNumber={item.item_number} />
+          </div>
         </div>
       </div>
     </div>

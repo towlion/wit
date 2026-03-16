@@ -9,7 +9,10 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
-from app.routers import auth, labels, projects, states, work_items, workspaces
+from app.routers import (
+    activity, attachments, auth, custom_fields, invites, labels,
+    notifications, projects, search, states, webhooks, work_items, workspaces,
+)
 
 # Configure structured JSON logging
 handler = logging.StreamHandler(sys.stdout)
@@ -62,6 +65,13 @@ app.include_router(projects.router, prefix="/api")
 app.include_router(work_items.router, prefix="/api")
 app.include_router(labels.router, prefix="/api")
 app.include_router(states.router, prefix="/api")
+app.include_router(activity.router, prefix="/api")
+app.include_router(search.router, prefix="/api")
+app.include_router(custom_fields.router, prefix="/api")
+app.include_router(attachments.router, prefix="/api")
+app.include_router(invites.router, prefix="/api")
+app.include_router(notifications.router, prefix="/api")
+app.include_router(webhooks.router, prefix="/api")
 
 
 @app.get("/health")

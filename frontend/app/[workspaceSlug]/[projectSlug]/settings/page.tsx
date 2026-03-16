@@ -14,6 +14,19 @@ export default function ProjectSettingsPage() {
   const [states, setStates] = useState<WorkflowState[]>([]);
   const [labels, setLabels] = useState<Label[]>([]);
 
+  interface FieldDef {
+    id: number;
+    project_id: number;
+    name: string;
+    field_type: string;
+    options: Record<string, unknown> | null;
+    required: boolean;
+    position: number;
+  }
+  const [fields, setFields] = useState<FieldDef[]>([]);
+  const [newFieldName, setNewFieldName] = useState("");
+  const [newFieldType, setNewFieldType] = useState("text");
+
   const [newStateName, setNewStateName] = useState("");
   const [newStateCategory, setNewStateCategory] = useState("todo");
   const [newStateColor, setNewStateColor] = useState("#6b7280");
@@ -24,7 +37,24 @@ export default function ProjectSettingsPage() {
   useEffect(() => {
     api.get<WorkflowState[]>(`${basePath}/states`).then(setStates);
     api.get<Label[]>(`${basePath}/labels`).then(setLabels);
+    api.get<FieldDef[]>(`${basePath}/fields`).then(setFields).catch(() => {});
   }, [basePath]);
+
+  async function addField(e: FormEvent) {
+    e.preventDefault();
+    const field = await api.post<FieldDef>(`${basePath}/fields`, {
+      name: newFieldName,
+      field_type: newFieldType,
+      position: fields.length,
+    });
+    setFields([...fields, field]);
+    setNewFieldName("");
+  }
+
+  async function deleteField(id: number) {
+    await api.delete(`${basePath}/fields/${id}`);
+    setFields(fields.filter((f) => f.id !== id));
+  }
 
   async function addState(e: FormEvent) {
     e.preventDefault();
@@ -163,6 +193,46 @@ export default function ProjectSettingsPage() {
           <button type="submit" className="btn-primary">
             Add
           </button>
+        </form>
+      </section>
+
+      <div className="h-px bg-[var(--border)] mb-8" />
+
+      {/* Custom Fields */}
+      <section>
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-3">Custom fields</h2>
+        <div className="space-y-2 mb-4">
+          {fields.map((f) => (
+            <div key={f.id} className="flex items-center justify-between p-3.5 card-surface">
+              <div className="flex items-center gap-2.5">
+                <span className="text-sm font-medium">{f.name}</span>
+                <span className="text-[11px] px-2 py-0.5 rounded-full bg-[var(--bg-tertiary)] text-[var(--text-muted)] border border-[var(--border-subtle)]">
+                  {f.field_type}
+                </span>
+              </div>
+              <button onClick={() => deleteField(f.id)} className="text-xs text-red-400/70 hover:text-red-400 transition-colors">
+                Delete
+              </button>
+            </div>
+          ))}
+        </div>
+        <form onSubmit={addField} className="flex gap-2">
+          <input
+            type="text"
+            value={newFieldName}
+            onChange={(e) => setNewFieldName(e.target.value)}
+            placeholder="Field name"
+            required
+            className="input-base flex-1"
+          />
+          <select value={newFieldType} onChange={(e) => setNewFieldType(e.target.value)} className="input-base w-auto">
+            <option value="text">Text</option>
+            <option value="number">Number</option>
+            <option value="date">Date</option>
+            <option value="select">Select</option>
+            <option value="checkbox">Checkbox</option>
+          </select>
+          <button type="submit" className="btn-primary">Add</button>
         </form>
       </section>
     </div>

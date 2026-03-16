@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 import type { WorkspaceListItem } from "@/lib/types";
+import NotificationBell from "./NotificationBell";
 
 export default function Shell({ children }: { children: React.ReactNode }) {
   const { user, loading, logout } = useAuth();
@@ -67,6 +68,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
         </nav>
 
         <div className="ml-auto flex items-center gap-3">
+          <NotificationBell />
           <div className="flex items-center gap-2.5">
             <div className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-500/80 to-violet-500/80 flex items-center justify-center text-[10px] text-white font-semibold shadow-sm">
               {user.display_name[0].toUpperCase()}

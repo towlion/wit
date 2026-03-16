@@ -1,9 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+import datetime
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
+from app.activity import record_activity
 from app.database import get_db
 from app.deps import get_current_user, get_workspace_member
-from app.models import Label, Project, User, Workspace, WorkItem, WorkItemAssignee, WorkItemLabel
+from app.models import Label, Project, User, Workspace, WorkflowState, WorkItem, WorkItemAssignee, WorkItemLabel
 from app.schemas import WorkItemCreate, WorkItemResponse, WorkItemUpdate
 
 router = APIRouter(tags=["work_items"])
@@ -27,16 +30,21 @@ def _resolve_project(ws_slug: str, project_slug: str, user: User, db: Session) -
 def list_items(
     ws_slug: str,
     project_slug: str,
+    overdue: bool = Query(False),
+    due_before: datetime.date | None = Query(None),
+    due_after: datetime.date | None = Query(None),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     project = _resolve_project(ws_slug, project_slug, user, db)
-    return (
-        db.query(WorkItem)
-        .filter_by(project_id=project.id, archived=False)
-        .order_by(WorkItem.position)
-        .all()
-    )
+    q = db.query(WorkItem).filter_by(project_id=project.id, archived=False)
+    if overdue:
+        q = q.filter(WorkItem.due_date < datetime.date.today(), WorkItem.due_date.isnot(None))
+    if due_before:
+        q = q.filter(WorkItem.due_date <= due_before, WorkItem.due_date.isnot(None))
+    if due_after:
+        q = q.filter(WorkItem.due_date >= due_after, WorkItem.due_date.isnot(None))
+    return q.order_by(WorkItem.position).all()
 
 
 @router.post(
@@ -69,9 +77,12 @@ def create_item(
         description=body.description,
         status_id=status_id,
         priority=body.priority,
+        due_date=body.due_date,
         created_by_id=user.id,
     )
     db.add(item)
+    db.flush()
+    record_activity(db, item.id, user.id, "created")
     db.commit()
     db.refresh(item)
     return item
@@ -112,10 +123,29 @@ def update_item(
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
 
-    for field in ("title", "description", "status_id", "priority", "position", "archived"):
-        val = getattr(body, field, None)
-        if val is not None:
-            setattr(item, field, val)
+    update_data = body.model_dump(exclude_unset=True)
+
+    if "status_id" in update_data and update_data["status_id"] != item.status_id:
+        old_state = db.get(WorkflowState, item.status_id)
+        new_state = db.get(WorkflowState, update_data["status_id"])
+        record_activity(
+            db, item.id, user.id, "status_change",
+            old_value=old_state.name if old_state else str(item.status_id),
+            new_value=new_state.name if new_state else str(update_data["status_id"]),
+        )
+
+    if "priority" in update_data and update_data["priority"] != item.priority:
+        record_activity(
+            db, item.id, user.id, "priority_change",
+            old_value=item.priority, new_value=update_data["priority"],
+        )
+
+    if "archived" in update_data and update_data["archived"] and not item.archived:
+        record_activity(db, item.id, user.id, "archived")
+
+    for field in ("title", "description", "status_id", "priority", "position", "archived", "due_date"):
+        if field in update_data:
+            setattr(item, field, update_data[field])
 
     db.commit()
     db.refresh(item)
@@ -160,7 +190,12 @@ def add_assignee(
         raise HTTPException(status_code=404, detail="Item not found")
     if db.query(WorkItemAssignee).filter_by(work_item_id=item.id, user_id=user_id).first():
         raise HTTPException(status_code=409, detail="Already assigned")
+    assignee_user = db.get(User, user_id)
     db.add(WorkItemAssignee(work_item_id=item.id, user_id=user_id))
+    record_activity(
+        db, item.id, user.id, "assignee_added",
+        new_value=assignee_user.display_name if assignee_user else str(user_id),
+    )
     db.commit()
     return {"ok": True}
 
@@ -184,6 +219,11 @@ def remove_assignee(
     assn = db.query(WorkItemAssignee).filter_by(work_item_id=item.id, user_id=user_id).first()
     if not assn:
         raise HTTPException(status_code=404, detail="Not assigned")
+    removed_user = db.get(User, user_id)
+    record_activity(
+        db, item.id, user.id, "assignee_removed",
+        old_value=removed_user.display_name if removed_user else str(user_id),
+    )
     db.delete(assn)
     db.commit()
 
@@ -209,7 +249,12 @@ def add_item_label(
         raise HTTPException(status_code=404, detail="Label not found")
     if db.query(WorkItemLabel).filter_by(work_item_id=item.id, label_id=label_id).first():
         raise HTTPException(status_code=409, detail="Label already applied")
+    label = db.get(Label, label_id)
     db.add(WorkItemLabel(work_item_id=item.id, label_id=label_id))
+    record_activity(
+        db, item.id, user.id, "label_added",
+        new_value=label.name if label else str(label_id),
+    )
     db.commit()
     return {"ok": True}
 
@@ -233,5 +278,10 @@ def remove_item_label(
     wil = db.query(WorkItemLabel).filter_by(work_item_id=item.id, label_id=label_id).first()
     if not wil:
         raise HTTPException(status_code=404, detail="Label not applied")
+    label = db.get(Label, label_id)
+    record_activity(
+        db, item.id, user.id, "label_removed",
+        old_value=label.name if label else str(label_id),
+    )
     db.delete(wil)
     db.commit()

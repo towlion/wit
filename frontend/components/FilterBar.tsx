@@ -6,6 +6,7 @@ export interface Filters {
   priority?: string;
   assigneeId?: number;
   labelId?: number;
+  overdue?: boolean;
 }
 
 interface FilterBarProps {
@@ -17,7 +18,7 @@ interface FilterBarProps {
 const PRIORITIES = ["", "urgent", "high", "medium", "low"];
 
 export default function FilterBar({ filters, onChange, labels }: FilterBarProps) {
-  const hasFilters = filters.priority || filters.assigneeId || filters.labelId;
+  const hasFilters = filters.priority || filters.assigneeId || filters.labelId || filters.overdue;
 
   return (
     <div className="flex items-center gap-2">
@@ -62,6 +63,17 @@ export default function FilterBar({ filters, onChange, labels }: FilterBarProps)
           ))}
         </select>
       )}
+
+      <button
+        onClick={() => onChange({ ...filters, overdue: filters.overdue ? undefined : true })}
+        className={`text-xs px-2.5 py-1.5 rounded-lg border transition-all duration-150 ${
+          filters.overdue
+            ? "bg-red-500/15 border-red-500/30 text-red-400"
+            : "bg-[var(--bg-tertiary)] border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--border-hover)]"
+        }`}
+      >
+        Overdue
+      </button>
 
       {hasFilters && (
         <button

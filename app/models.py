@@ -2,11 +2,14 @@ import datetime
 
 from sqlalchemy import (
     Boolean,
+    Date,
     DateTime,
     Enum,
+    Float,
     ForeignKey,
     Index,
     Integer,
+    JSON,
     String,
     Text,
     UniqueConstraint,
@@ -177,6 +180,7 @@ class WorkItem(Base):
         default="medium",
     )
     position: Mapped[str] = mapped_column(String(255), nullable=False, default="a0")
+    due_date: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)
     archived: Mapped[bool] = mapped_column(Boolean, default=False)
     created_by_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     created_at: Mapped[datetime.datetime] = mapped_column(
@@ -192,3 +196,134 @@ class WorkItem(Base):
     labels: Mapped[list["Label"]] = relationship(
         secondary="work_item_labels", lazy="selectin"
     )
+
+
+class ActivityEvent(Base):
+    __tablename__ = "activity_events"
+    __table_args__ = (
+        Index("ix_activity_events_item_created", "work_item_id", "created_at"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    work_item_id: Mapped[int] = mapped_column(ForeignKey("work_items.id", ondelete="CASCADE"))
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    event_type: Mapped[str] = mapped_column(
+        Enum(
+            "comment", "status_change", "priority_change",
+            "assignee_added", "assignee_removed",
+            "label_added", "label_removed",
+            "created", "archived",
+            name="activity_event_type",
+        ),
+        nullable=False,
+    )
+    body: Mapped[str | None] = mapped_column(Text, nullable=True)
+    old_value: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    new_value: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    user: Mapped["User | None"] = relationship()
+    work_item: Mapped["WorkItem"] = relationship()
+
+
+class CustomFieldDefinition(Base):
+    __tablename__ = "custom_field_definitions"
+    __table_args__ = (
+        UniqueConstraint("project_id", "name"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    field_type: Mapped[str] = mapped_column(
+        Enum("text", "number", "date", "select", "checkbox", name="custom_field_type"),
+        nullable=False,
+    )
+    options: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    required: Mapped[bool] = mapped_column(Boolean, default=False)
+    position: Mapped[int] = mapped_column(Integer, default=0)
+
+    project: Mapped["Project"] = relationship()
+
+
+class CustomFieldValue(Base):
+    __tablename__ = "custom_field_values"
+    __table_args__ = (
+        UniqueConstraint("work_item_id", "field_id"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    work_item_id: Mapped[int] = mapped_column(ForeignKey("work_items.id", ondelete="CASCADE"))
+    field_id: Mapped[int] = mapped_column(ForeignKey("custom_field_definitions.id", ondelete="CASCADE"))
+    value_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    value_number: Mapped[float | None] = mapped_column(Float, nullable=True)
+    value_date: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)
+
+    field: Mapped["CustomFieldDefinition"] = relationship()
+
+
+class Attachment(Base):
+    __tablename__ = "attachments"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    work_item_id: Mapped[int] = mapped_column(ForeignKey("work_items.id", ondelete="CASCADE"), index=True)
+    filename: Mapped[str] = mapped_column(String(500), nullable=False)
+    content_type: Mapped[str] = mapped_column(String(255), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    storage_key: Mapped[str] = mapped_column(String(500), nullable=False)
+    uploaded_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    uploaded_by: Mapped["User | None"] = relationship()
+
+
+class WorkspaceInvite(Base):
+    __tablename__ = "workspace_invites"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id", ondelete="CASCADE"))
+    token: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    role: Mapped[str] = mapped_column(String(50), nullable=False, default="member")
+    created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    expires_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    max_uses: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    use_count: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    workspace: Mapped["Workspace"] = relationship()
+
+
+class Notification(Base):
+    __tablename__ = "notifications"
+    __table_args__ = (
+        Index("ix_notifications_user_read_created", "user_id", "read", "created_at"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    work_item_id: Mapped[int | None] = mapped_column(ForeignKey("work_items.id", ondelete="SET NULL"), nullable=True)
+    event_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    title: Mapped[str] = mapped_column(String(500), nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    read: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class WebhookConfig(Base):
+    __tablename__ = "webhook_configs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id", ondelete="CASCADE"))
+    url: Mapped[str] = mapped_column(String(1000), nullable=False)
+    event_types: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    workspace: Mapped["Workspace"] = relationship()
