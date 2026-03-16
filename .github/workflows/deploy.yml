@@ -75,7 +75,15 @@ jobs:
             # Generate rendered Caddyfile for platform Caddy
             cat > /opt/platform/caddy-apps/${APP_NAME}.caddy <<CADDYEOF
             ${{ secrets.APP_DOMAIN }} {
-                reverse_proxy ${APP_NAME}-app-1:8000
+                handle /api/* {
+                    reverse_proxy ${APP_NAME}-app-1:8000
+                }
+                handle /health {
+                    reverse_proxy ${APP_NAME}-app-1:8000
+                }
+                handle {
+                    reverse_proxy ${APP_NAME}-frontend-1:3000
+                }
             }
             CADDYEOF
             docker compose -f /opt/platform/docker-compose.yml exec -T caddy caddy reload --config /etc/caddy/Caddyfile

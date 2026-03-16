@@ -1,3 +1,11 @@
 {$APP_DOMAIN} {
-    reverse_proxy app:8000
+    handle /api/* {
+        reverse_proxy wit-app-1:8000
+    }
+    handle /health {
+        reverse_proxy wit-app-1:8000
+    }
+    handle {
+        reverse_proxy wit-frontend-1:3000
+    }
 }

@@ -23,11 +23,10 @@ services:
           cpus: '0.25'
           memory: 256M
 
-  celery-worker:
+  frontend:
     build:
       context: ..
-      dockerfile: app/Dockerfile
-    command: celery -A app.tasks worker --loglevel=info
+      dockerfile: frontend/Dockerfile
     env_file:
       - .env
     restart: unless-stopped
@@ -36,11 +35,11 @@ services:
     deploy:
       resources:
         limits:
+          cpus: '0.50'
+          memory: 512M
+        reservations:
           cpus: '0.25'
           memory: 256M
-        reservations:
-          cpus: '0.10'
-          memory: 128M
 
 networks:
   towlion:
