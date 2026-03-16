@@ -1,6 +1,7 @@
 import logging
 import sys
 import time
+# test: verify preview workflow starts all services
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
