@@ -1,7 +1,7 @@
 "use client";
 
 import { useDraggable } from "@dnd-kit/core";
-import type { WorkItem } from "@/lib/types";
+import type { WorkItem, CardDisplaySettings } from "@/lib/types";
 
 const PRIORITY_COLORS: Record<string, string> = {
   urgent: "#ef4444",
@@ -17,6 +17,14 @@ const PRIORITY_STYLES: Record<string, string> = {
   low: "bg-zinc-500/15 text-zinc-400 border-zinc-500/20",
 };
 
+const DEFAULT_DISPLAY: CardDisplaySettings = {
+  show_priority: true,
+  show_due_date: true,
+  show_labels: true,
+  show_assignees: true,
+  show_description: false,
+};
+
 interface CardProps {
   item: WorkItem;
   overlay?: boolean;
@@ -24,14 +32,17 @@ interface CardProps {
   selectable?: boolean;
   selected?: boolean;
   onToggleSelect?: () => void;
+  cardDisplay?: CardDisplaySettings;
 }
 
-export default function Card({ item, overlay, onClick, selectable, selected, onToggleSelect }: CardProps) {
+export default function Card({ item, overlay, onClick, selectable, selected, onToggleSelect, cardDisplay }: CardProps) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: item.id,
   });
 
+  const d = cardDisplay || DEFAULT_DISPLAY;
   const priorityColor = PRIORITY_COLORS[item.priority] || PRIORITY_COLORS.medium;
+  const hasMetadata = (d.show_priority) || (d.show_due_date && item.due_date) || (d.show_labels && item.labels.length > 0) || (d.show_assignees && item.assignees.length > 0);
 
   return (
     <div
@@ -79,60 +90,70 @@ export default function Card({ item, overlay, onClick, selectable, selected, onT
         <span className="text-sm leading-snug flex-1">{item.title}</span>
       </div>
 
-      <div className="flex items-center gap-1.5 mt-2.5 pl-2 flex-wrap">
-        <span
-          className={`text-[10px] px-1.5 py-0.5 rounded-md font-medium border ${
-            PRIORITY_STYLES[item.priority] || PRIORITY_STYLES.medium
-          }`}
-        >
-          {item.priority}
-        </span>
+      {d.show_description && item.description && (
+        <div className="text-xs text-[var(--text-muted)] mt-1.5 pl-2 line-clamp-2 leading-relaxed">
+          {item.description}
+        </div>
+      )}
 
-        {item.due_date && (() => {
-          const today = new Date().toISOString().split("T")[0];
-          const isOverdue = item.due_date < today;
-          const isToday = item.due_date === today;
-          return (
+      {hasMetadata && (
+        <div className="flex items-center gap-1.5 mt-2.5 pl-2 flex-wrap">
+          {d.show_priority && (
             <span
-              className={`text-[10px] px-1.5 py-0.5 rounded-md font-medium border flex items-center gap-1 ${
-                isOverdue
-                  ? "bg-red-500/15 text-red-400 border-red-500/20"
-                  : isToday
-                  ? "bg-yellow-500/15 text-yellow-400 border-yellow-500/20"
-                  : "bg-zinc-500/10 text-zinc-400 border-zinc-500/20"
+              className={`text-[10px] px-1.5 py-0.5 rounded-md font-medium border ${
+                PRIORITY_STYLES[item.priority] || PRIORITY_STYLES.medium
               }`}
             >
-              <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              {new Date(item.due_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+              {item.priority}
             </span>
-          );
-        })()}
+          )}
 
-        {item.labels.map((label) => (
-          <span
-            key={label.id}
-            className="w-2 h-2 rounded-full shrink-0 ring-1 ring-black/10"
-            style={{ backgroundColor: label.color }}
-            title={label.name}
-          />
-        ))}
-
-        {item.assignees.length > 0 && (
-          <div className="flex -space-x-1.5 ml-auto">
-            {item.assignees.slice(0, 3).map((a) => (
-              <div
-                key={a.id}
-                className="w-5 h-5 rounded-full bg-gradient-to-br from-indigo-500/80 to-violet-500/80 flex items-center justify-center text-[9px] text-white font-medium border-2 border-[var(--bg-secondary)]"
-                title={a.display_name}
+          {d.show_due_date && item.due_date && (() => {
+            const today = new Date().toISOString().split("T")[0];
+            const isOverdue = item.due_date < today;
+            const isToday = item.due_date === today;
+            return (
+              <span
+                className={`text-[10px] px-1.5 py-0.5 rounded-md font-medium border flex items-center gap-1 ${
+                  isOverdue
+                    ? "bg-red-500/15 text-red-400 border-red-500/20"
+                    : isToday
+                    ? "bg-yellow-500/15 text-yellow-400 border-yellow-500/20"
+                    : "bg-zinc-500/10 text-zinc-400 border-zinc-500/20"
+                }`}
               >
-                {a.display_name[0].toUpperCase()}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+                <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                {new Date(item.due_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+              </span>
+            );
+          })()}
+
+          {d.show_labels && item.labels.map((label) => (
+            <span
+              key={label.id}
+              className="w-2 h-2 rounded-full shrink-0 ring-1 ring-black/10"
+              style={{ backgroundColor: label.color }}
+              title={label.name}
+            />
+          ))}
+
+          {d.show_assignees && item.assignees.length > 0 && (
+            <div className="flex -space-x-1.5 ml-auto">
+              {item.assignees.slice(0, 3).map((a) => (
+                <div
+                  key={a.id}
+                  className="w-5 h-5 rounded-full bg-gradient-to-br from-indigo-500/80 to-violet-500/80 flex items-center justify-center text-[9px] text-white font-medium border-2 border-[var(--bg-secondary)]"
+                  title={a.display_name}
+                >
+                  {a.display_name[0].toUpperCase()}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

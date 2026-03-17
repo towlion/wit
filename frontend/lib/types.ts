@@ -29,6 +29,20 @@ export interface Workspace {
   members: Member[];
 }
 
+export interface CardDisplaySettings {
+  show_priority: boolean;
+  show_due_date: boolean;
+  show_labels: boolean;
+  show_assignees: boolean;
+  show_description: boolean;
+}
+
+export interface BoardSettings {
+  wip_limits: Record<string, number>;
+  swimlane: "priority" | "assignee" | "label" | null;
+  card_display: CardDisplaySettings;
+}
+
 export interface Project {
   id: number;
   name: string;
@@ -36,6 +50,7 @@ export interface Project {
   description: string | null;
   template: string;
   item_counter: number;
+  board_settings: BoardSettings | null;
   created_at: string;
 }
 

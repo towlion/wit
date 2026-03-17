@@ -11,7 +11,7 @@ import {
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
-import type { WorkflowState, WorkItem } from "@/lib/types";
+import type { WorkflowState, WorkItem, BoardSettings, CardDisplaySettings } from "@/lib/types";
 import Column from "./Column";
 import Card from "./Card";
 import CardDetail from "./CardDetail";
@@ -26,6 +26,7 @@ interface BoardProps {
   selectable?: boolean;
   selectedIds?: Set<number>;
   onToggleSelect?: (id: number) => void;
+  boardSettings?: BoardSettings | null;
 }
 
 function generatePosition(before: string | null, after: string | null): string {
@@ -46,6 +47,68 @@ function generatePosition(before: string | null, after: string | null): string {
   }
 }
 
+const PRIORITY_ORDER = ["urgent", "high", "medium", "low"];
+
+function getSwimlanes(items: WorkItem[], swimlane: string | null): { key: string; label: string; itemIds: Set<number> }[] {
+  if (!swimlane) return [{ key: "__all__", label: "", itemIds: new Set(items.map((i) => i.id)) }];
+
+  if (swimlane === "priority") {
+    return PRIORITY_ORDER.map((p) => ({
+      key: p,
+      label: p.charAt(0).toUpperCase() + p.slice(1),
+      itemIds: new Set(items.filter((i) => i.priority === p).map((i) => i.id)),
+    })).filter((s) => s.itemIds.size > 0);
+  }
+
+  if (swimlane === "assignee") {
+    const byAssignee = new Map<string, { label: string; ids: Set<number> }>();
+    const unassigned = new Set<number>();
+    for (const item of items) {
+      if (item.assignees.length === 0) {
+        unassigned.add(item.id);
+      } else {
+        for (const a of item.assignees) {
+          const key = String(a.id);
+          if (!byAssignee.has(key)) byAssignee.set(key, { label: a.display_name, ids: new Set() });
+          byAssignee.get(key)!.ids.add(item.id);
+        }
+      }
+    }
+    const lanes = Array.from(byAssignee.entries()).map(([key, v]) => ({
+      key,
+      label: v.label,
+      itemIds: v.ids,
+    }));
+    if (unassigned.size > 0) lanes.push({ key: "__none__", label: "Unassigned", itemIds: unassigned });
+    return lanes;
+  }
+
+  if (swimlane === "label") {
+    const byLabel = new Map<string, { label: string; color: string; ids: Set<number> }>();
+    const unlabeled = new Set<number>();
+    for (const item of items) {
+      if (item.labels.length === 0) {
+        unlabeled.add(item.id);
+      } else {
+        for (const l of item.labels) {
+          const key = String(l.id);
+          if (!byLabel.has(key)) byLabel.set(key, { label: l.name, color: l.color, ids: new Set() });
+          byLabel.get(key)!.ids.add(item.id);
+        }
+      }
+    }
+    const lanes = Array.from(byLabel.entries()).map(([key, v]) => ({
+      key,
+      label: v.label,
+      itemIds: v.ids,
+    }));
+    if (unlabeled.size > 0) lanes.push({ key: "__none__", label: "No label", itemIds: unlabeled });
+    return lanes;
+  }
+
+  return [{ key: "__all__", label: "", itemIds: new Set(items.map((i) => i.id)) }];
+}
+
 export default function Board({
   states,
   items,
@@ -56,6 +119,7 @@ export default function Board({
   selectable,
   selectedIds,
   onToggleSelect,
+  boardSettings,
 }: BoardProps) {
   const [activeId, setActiveId] = useState<number | null>(null);
   const [selectedItem, setSelectedItem] = useState<WorkItem | null>(null);
@@ -116,6 +180,12 @@ export default function Board({
     }
   }
 
+  const swimlaneMode = boardSettings?.swimlane || null;
+  const swimlanes = getSwimlanes(items, swimlaneMode);
+  const wipLimits = boardSettings?.wip_limits || {};
+  const cardDisplay = boardSettings?.card_display;
+  const hasSwimlanes = swimlaneMode && swimlanes.length > 0 && swimlanes[0].key !== "__all__";
+
   return (
     <>
       <DndContext
@@ -124,27 +194,66 @@ export default function Board({
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex-1 flex overflow-x-auto p-4 gap-4">
-          {states.map((state) => {
-            const columnItems = items
-              .filter((i) => i.status_id === state.id)
-              .sort((a, b) => a.position.localeCompare(b.position));
-            return (
-              <Column
-                key={state.id}
-                state={state}
-                items={columnItems}
-                onItemCreate={onItemCreate}
-                onCardClick={setSelectedItem}
-                selectable={selectable}
-                selectedIds={selectedIds}
-                onToggleSelect={onToggleSelect}
-              />
-            );
-          })}
+        <div className={`flex-1 overflow-auto p-4 ${hasSwimlanes ? "" : "flex gap-4"}`}>
+          {hasSwimlanes ? (
+            swimlanes.map((lane) => (
+              <div key={lane.key} className="mb-4 last:mb-0">
+                <div className="flex items-center gap-2 mb-2 px-1">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                    {lane.label}
+                  </span>
+                  <span className="text-[10px] text-[var(--text-muted)] tabular-nums">
+                    ({lane.itemIds.size})
+                  </span>
+                  <div className="flex-1 h-px bg-[var(--border)]" />
+                </div>
+                <div className="flex gap-4 overflow-x-auto">
+                  {states.map((state) => {
+                    const columnItems = items
+                      .filter((i) => i.status_id === state.id && lane.itemIds.has(i.id))
+                      .sort((a, b) => a.position.localeCompare(b.position));
+                    return (
+                      <Column
+                        key={`${lane.key}-${state.id}`}
+                        state={state}
+                        items={columnItems}
+                        onItemCreate={onItemCreate}
+                        onCardClick={setSelectedItem}
+                        selectable={selectable}
+                        selectedIds={selectedIds}
+                        onToggleSelect={onToggleSelect}
+                        wipLimit={wipLimits[String(state.id)]}
+                        cardDisplay={cardDisplay}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            ))
+          ) : (
+            states.map((state) => {
+              const columnItems = items
+                .filter((i) => i.status_id === state.id)
+                .sort((a, b) => a.position.localeCompare(b.position));
+              return (
+                <Column
+                  key={state.id}
+                  state={state}
+                  items={columnItems}
+                  onItemCreate={onItemCreate}
+                  onCardClick={setSelectedItem}
+                  selectable={selectable}
+                  selectedIds={selectedIds}
+                  onToggleSelect={onToggleSelect}
+                  wipLimit={wipLimits[String(state.id)]}
+                  cardDisplay={cardDisplay}
+                />
+              );
+            })
+          )}
         </div>
         <DragOverlay>
-          {activeItem ? <Card item={activeItem} overlay /> : null}
+          {activeItem ? <Card item={activeItem} overlay cardDisplay={cardDisplay} /> : null}
         </DragOverlay>
       </DndContext>
 

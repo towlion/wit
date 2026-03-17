@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams } from "next/navigation";
 import { api } from "@/lib/api";
-import type { WorkflowState, WorkItem, Label, Workspace, BulkOperationResult } from "@/lib/types";
+import type { WorkflowState, WorkItem, Label, Workspace, BulkOperationResult, Project, BoardSettings } from "@/lib/types";
 import Board from "@/components/Board";
 import CardDetail from "@/components/CardDetail";
 import FilterBar, { Filters } from "@/components/FilterBar";
@@ -11,6 +11,7 @@ import CalendarView from "@/components/CalendarView";
 import SearchModal from "@/components/SearchModal";
 import ShortcutHelp from "@/components/ShortcutHelp";
 import BulkToolbar from "@/components/BulkToolbar";
+import BoardSettingsPopover from "@/components/BoardSettingsPopover";
 import { useKeyboardShortcuts, type Shortcut } from "@/lib/shortcuts";
 import { useAuth } from "@/lib/auth";
 import Link from "next/link";
@@ -39,6 +40,11 @@ export default function ProjectBoardPage() {
   const [selectedItem, setSelectedItem] = useState<WorkItem | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
+  const [boardSettings, setBoardSettings] = useState<BoardSettings>({
+    wip_limits: {},
+    swimlane: null,
+    card_display: { show_priority: true, show_due_date: true, show_labels: true, show_assignees: true, show_description: false },
+  });
 
   // Determine if user is admin/owner in this workspace
   const userRole = workspace?.members.find((m) => m.user_id === user?.id)?.role;
@@ -69,13 +75,21 @@ export default function ProjectBoardPage() {
 
   useEffect(() => {
     loadData();
-  }, [loadData]);
+    api.get<Project>(basePath).then((p) => {
+      if (p.board_settings) setBoardSettings(p.board_settings);
+    }).catch(() => {});
+  }, [loadData, basePath]);
 
   useEffect(() => {
     if (user) {
       api.get<Workspace>(`/workspaces/${wsSlug}`).then(setWorkspace).catch(() => {});
     }
   }, [wsSlug, user]);
+
+  function updateBoardSettings(newSettings: BoardSettings) {
+    setBoardSettings(newSettings);
+    api.patch(basePath, { board_settings: newSettings }).catch(() => {});
+  }
 
   const filteredItems = items.filter((item) => {
     if (filters.priority && item.priority !== filters.priority) return false;
@@ -176,6 +190,18 @@ export default function ProjectBoardPage() {
               Calendar
             </button>
           </div>
+          {viewMode === "board" && (
+            <select
+              value={boardSettings.swimlane || ""}
+              onChange={(e) => updateBoardSettings({ ...boardSettings, swimlane: (e.target.value || null) as BoardSettings["swimlane"] })}
+              className="input-base text-[10px] w-auto py-1.5"
+            >
+              <option value="">No swimlanes</option>
+              <option value="priority">By priority</option>
+              <option value="assignee">By assignee</option>
+              <option value="label">By label</option>
+            </select>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -194,6 +220,13 @@ export default function ProjectBoardPage() {
           >
             <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[var(--bg-tertiary)] border border-[var(--border-subtle)]">?</kbd>
           </button>
+          {viewMode === "board" && (
+            <BoardSettingsPopover
+              settings={boardSettings}
+              states={states}
+              onUpdate={updateBoardSettings}
+            />
+          )}
           <Link
             href={`/${wsSlug}/${projectSlug}/insights`}
             className="text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors px-2.5 py-1.5 rounded-lg hover:bg-[var(--bg-tertiary)] flex items-center gap-1"
@@ -222,6 +255,7 @@ export default function ProjectBoardPage() {
           selectable={isAdmin}
           selectedIds={selectedIds}
           onToggleSelect={toggleSelect}
+          boardSettings={boardSettings}
         />
       ) : (
         <CalendarView

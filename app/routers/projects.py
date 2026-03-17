@@ -113,6 +113,8 @@ def update_project(
         project.name = body.name
     if body.description is not None:
         project.description = body.description
+    if body.board_settings is not None:
+        project.board_settings = body.board_settings.model_dump()
     db.commit()
     db.refresh(project)
     return project

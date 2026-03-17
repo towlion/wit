@@ -89,6 +89,20 @@ class UpdateMemberRequest(BaseModel):
 
 
 # --- Project ---
+class CardDisplaySettings(BaseModel):
+    show_priority: bool = True
+    show_due_date: bool = True
+    show_labels: bool = True
+    show_assignees: bool = True
+    show_description: bool = False
+
+
+class BoardSettings(BaseModel):
+    wip_limits: dict[str, int] = {}
+    swimlane: str | None = None
+    card_display: CardDisplaySettings = CardDisplaySettings()
+
+
 class ProjectCreate(BaseModel):
     name: str
     slug: str
@@ -99,6 +113,7 @@ class ProjectCreate(BaseModel):
 class ProjectUpdate(BaseModel):
     name: str | None = None
     description: str | None = None
+    board_settings: BoardSettings | None = None
 
 
 class ProjectResponse(BaseModel):
@@ -108,6 +123,7 @@ class ProjectResponse(BaseModel):
     description: str | None
     template: str
     item_counter: int
+    board_settings: BoardSettings | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

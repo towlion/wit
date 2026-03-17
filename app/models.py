@@ -92,6 +92,7 @@ class Project(Base):
         default="software",
     )
     item_counter: Mapped[int] = mapped_column(Integer, default=0)
+    board_settings: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
