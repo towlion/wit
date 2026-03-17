@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import { api } from "@/lib/api";
+import { useFocusTrap } from "@/lib/useFocusTrap";
 import type { ImportCsvResponse, ImportJsonResponse } from "@/lib/types";
 
 interface Props {
@@ -18,6 +19,8 @@ export default function ImportModal({ basePath, onClose, onImported }: Props) {
   const [result, setResult] = useState<string | null>(null);
   const [errors, setErrors] = useState<{ row: number; message: string }[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef, onClose);
 
   function handleFileChange(f: File | null) {
     setFile(f);
@@ -77,19 +80,21 @@ export default function ImportModal({ basePath, onClose, onImported }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-[var(--bg-primary)] rounded-2xl border border-[var(--border)] shadow-2xl w-full max-w-lg p-6 animate-fade-in" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose} role="dialog" aria-modal="true" aria-label="Import data">
+      <div ref={dialogRef} className="bg-[var(--bg-primary)] rounded-2xl border border-[var(--border)] shadow-2xl w-full max-w-lg p-6 animate-fade-in" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-semibold">Import data</h2>
-          <button onClick={onClose} className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors">
+          <button onClick={onClose} aria-label="Close" className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
 
-        <div className="flex items-center rounded-lg border border-[var(--border)] overflow-hidden mb-4">
+        <div className="flex items-center rounded-lg border border-[var(--border)] overflow-hidden mb-4" role="tablist">
           <button
+            role="tab"
+            aria-selected={tab === "csv"}
             onClick={() => { setTab("csv"); setFile(null); setPreview([]); setResult(null); setErrors([]); }}
             className={`text-xs px-4 py-2 font-medium flex-1 transition-colors ${
               tab === "csv" ? "bg-[var(--accent-subtle)] text-[var(--accent-hover)]" : "text-[var(--text-muted)]"
@@ -98,6 +103,8 @@ export default function ImportModal({ basePath, onClose, onImported }: Props) {
             CSV
           </button>
           <button
+            role="tab"
+            aria-selected={tab === "json"}
             onClick={() => { setTab("json"); setFile(null); setPreview([]); setResult(null); setErrors([]); }}
             className={`text-xs px-4 py-2 font-medium flex-1 transition-colors ${
               tab === "json" ? "bg-[var(--accent-subtle)] text-[var(--accent-hover)]" : "text-[var(--text-muted)]"

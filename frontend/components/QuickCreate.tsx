@@ -54,6 +54,7 @@ export default function QuickCreate({ onSubmit, onSubmitFromTemplate, templates 
       <div className="flex gap-1">
         <button
           onClick={() => setActive(true)}
+          aria-label="Add item"
           className="flex-1 text-left text-sm text-[var(--text-muted)] hover:text-[var(--text-secondary)] px-3 py-2.5 rounded-xl border border-dashed border-[var(--border)] hover:border-[var(--border-hover)] hover:bg-[var(--bg-secondary)]/50 transition-all duration-200"
         >
           <span className="opacity-70">+</span> Add item
@@ -64,19 +65,23 @@ export default function QuickCreate({ onSubmit, onSubmitFromTemplate, templates 
               onClick={() => setShowTemplates(!showTemplates)}
               className="text-sm text-[var(--text-muted)] hover:text-[var(--text-secondary)] px-2.5 py-2.5 rounded-xl border border-dashed border-[var(--border)] hover:border-[var(--border-hover)] hover:bg-[var(--bg-secondary)]/50 transition-all duration-200"
               title="Create from template"
+              aria-label="Create from template"
+              aria-haspopup="true"
+              aria-expanded={showTemplates}
             >
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
             </button>
             {showTemplates && (
-              <div className="absolute bottom-full mb-1 right-0 w-48 card-surface shadow-2xl shadow-black/40 z-50 py-1 animate-fade-in">
+              <div role="menu" className="absolute bottom-full mb-1 right-0 w-48 card-surface shadow-2xl shadow-black/40 z-50 py-1 animate-fade-in" onKeyDown={(e) => { if (e.key === "Escape") setShowTemplates(false); }}>
                 <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
                   Templates
                 </div>
                 {templates!.map((tmpl) => (
                   <button
                     key={tmpl.id}
+                    role="menuitem"
                     onClick={() => handleTemplateClick(tmpl)}
                     disabled={submitting}
                     className="w-full text-left px-3 py-2 text-sm hover:bg-[var(--bg-tertiary)] transition-colors"

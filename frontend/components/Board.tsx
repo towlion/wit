@@ -7,7 +7,9 @@ import {
   DragOverEvent,
   DragOverlay,
   DragStartEvent,
+  KeyboardSensor,
   PointerSensor,
+  closestCorners,
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
@@ -129,11 +131,50 @@ export default function Board({
 }: BoardProps) {
   const [activeId, setActiveId] = useState<number | null>(null);
   const [selectedItem, setSelectedItem] = useState<WorkItem | null>(null);
-  const [liveAnnouncement, setLiveAnnouncement] = useState("");
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor)
   );
+
+  function getItemLabel(id: string | number) {
+    const item = items.find((i) => i.id === Number(id));
+    return item ? `#${item.item_number} ${item.title}` : `item ${id}`;
+  }
+
+  function getColumnName(overId: string | number) {
+    const overIdStr = String(overId);
+    if (overIdStr.startsWith("column-")) {
+      const stateId = parseInt(overIdStr.replace("column-", ""));
+      return states.find((s) => s.id === stateId)?.name || "unknown column";
+    }
+    const overItem = items.find((i) => i.id === Number(overId));
+    if (overItem) {
+      return states.find((s) => s.id === overItem.status_id)?.name || "unknown column";
+    }
+    return "unknown";
+  }
+
+  const announcements = {
+    onDragStart({ active }: { active: { id: string | number } }) {
+      return `Picked up ${getItemLabel(active.id)}`;
+    },
+    onDragOver({ active, over }: { active: { id: string | number }; over: { id: string | number } | null }) {
+      if (over) {
+        return `${getItemLabel(active.id)} is over ${getColumnName(over.id)} column`;
+      }
+      return `${getItemLabel(active.id)} is no longer over a drop target`;
+    },
+    onDragEnd({ active, over }: { active: { id: string | number }; over: { id: string | number } | null }) {
+      if (over) {
+        return `Dropped ${getItemLabel(active.id)} into ${getColumnName(over.id)} column`;
+      }
+      return `${getItemLabel(active.id)} was dropped`;
+    },
+    onDragCancel({ active }: { active: { id: string | number }; over: { id: string | number } | null }) {
+      return `Cancelled dragging ${getItemLabel(active.id)}`;
+    },
+  };
 
   const activeItem = activeId ? items.find((i) => i.id === activeId) : null;
 
@@ -180,14 +221,10 @@ export default function Board({
     }
 
     if (targetStatusId !== item.status_id || targetPosition !== item.position) {
-      const targetState = states.find((s) => s.id === targetStatusId);
       await onItemUpdate(item.item_number, {
         status_id: targetStatusId,
         position: targetPosition,
       });
-      if (targetState) {
-        setLiveAnnouncement(`Item #${item.item_number} moved to ${targetState.name}`);
-      }
     }
   }
 
@@ -199,12 +236,18 @@ export default function Board({
 
   return (
     <>
-      <div aria-live="polite" className="sr-only">{liveAnnouncement}</div>
       <DndContext
         sensors={sensors}
+        collisionDetection={closestCorners}
         onDragStart={handleDragStart}
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
+        accessibility={{
+          announcements,
+          screenReaderInstructions: {
+            draggable: "To pick up a draggable item, press space or enter. Use arrow keys to move. Press space or enter again to drop, or escape to cancel.",
+          },
+        }}
       >
         <div className={`flex-1 overflow-auto p-4 ${hasSwimlanes ? "" : "flex gap-4"}`}>
           {hasSwimlanes ? (

@@ -51,6 +51,10 @@ export default function Card({ item, overlay, onClick, selectable, selected, onT
       ref={overlay ? undefined : setNodeRef}
       {...(overlay ? {} : { ...attributes, ...listeners })}
       onClick={onClick}
+      role="button"
+      aria-roledescription="draggable item"
+      aria-label={`#${item.item_number} ${item.title}, ${item.priority} priority`}
+      tabIndex={overlay ? undefined : 0}
       className={`group relative p-3 rounded-xl bg-[var(--bg-secondary)] border cursor-pointer select-none transition-all duration-200 ${
         selected ? "border-[var(--accent)] ring-1 ring-[var(--accent)]/30" : "border-[var(--border)]"
       } ${
@@ -185,6 +189,7 @@ export default function Card({ item, overlay, onClick, selectable, selected, onT
               className="w-2 h-2 rounded-full shrink-0 ring-1 ring-black/10"
               style={{ backgroundColor: label.color }}
               title={label.name}
+              aria-label={`Label: ${label.name}`}
             />
           ))}
 
@@ -195,6 +200,7 @@ export default function Card({ item, overlay, onClick, selectable, selected, onT
                   key={a.id}
                   className="w-5 h-5 rounded-full bg-gradient-to-br from-indigo-500/80 to-violet-500/80 flex items-center justify-center text-[9px] text-white font-medium border-2 border-[var(--bg-secondary)]"
                   title={a.display_name}
+                  aria-label={`Assigned to ${a.display_name}`}
                 >
                   {a.display_name[0].toUpperCase()}
                 </div>

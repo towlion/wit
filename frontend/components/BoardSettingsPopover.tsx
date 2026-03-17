@@ -53,6 +53,9 @@ export default function BoardSettingsPopover({ settings, states, onUpdate }: Pro
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        aria-haspopup="true"
+        aria-label="Board settings"
         className="text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors px-2.5 py-1.5 rounded-lg hover:bg-[var(--bg-tertiary)] flex items-center gap-1"
         title="Board settings"
       >
@@ -63,12 +66,12 @@ export default function BoardSettingsPopover({ settings, states, onUpdate }: Pro
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-1 w-72 card-surface p-4 shadow-2xl shadow-black/40 z-50 animate-fade-in">
+        <div className="absolute right-0 top-full mt-1 w-72 card-surface p-4 shadow-2xl shadow-black/40 z-50 animate-fade-in" onKeyDown={(e) => { if (e.key === "Escape") setOpen(false); }}>
           {/* Card display */}
           <h3 className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-2">
             Card display
           </h3>
-          <div className="space-y-1.5 mb-4">
+          <div role="group" aria-label="Card display options" className="space-y-1.5 mb-4">
             {([
               ["show_priority", "Priority badge"],
               ["show_due_date", "Due date"],
@@ -94,7 +97,7 @@ export default function BoardSettingsPopover({ settings, states, onUpdate }: Pro
           <h3 className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-2">
             WIP limits
           </h3>
-          <div className="space-y-1.5">
+          <div role="group" aria-label="WIP limits per column" className="space-y-1.5">
             {states.map((state) => (
               <div key={state.id} className="flex items-center gap-2">
                 <div

@@ -79,7 +79,7 @@ export default function CardDetail({ item, basePath, wsSlug, onClose, onUpdate }
   const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
 
   const panelRef = React.useRef<HTMLDivElement>(null);
-  useFocusTrap(panelRef);
+  useFocusTrap(panelRef, onClose);
 
   const itemPath = `${basePath}/items/${item.item_number}`;
 
@@ -299,6 +299,7 @@ export default function CardDetail({ item, basePath, wsSlug, onClose, onUpdate }
               <label className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">Description</label>
               <button
                 onClick={() => setEditingDesc(!editingDesc)}
+                aria-label={editingDesc ? "Preview description" : "Edit description"}
                 className="text-xs text-[var(--accent)] hover:text-[var(--accent-hover)] transition-colors font-medium"
               >
                 {editingDesc ? "Preview" : "Edit"}
@@ -386,6 +387,7 @@ export default function CardDetail({ item, basePath, wsSlug, onClose, onUpdate }
                       </span>
                       <button
                         onClick={() => handleRemoveDependency(d.item_number)}
+                        aria-label={`Remove dependency #${d.item_number}`}
                         className="text-[var(--text-muted)] hover:text-red-400 transition-colors ml-2"
                       >
                         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -410,6 +412,7 @@ export default function CardDetail({ item, basePath, wsSlug, onClose, onUpdate }
                       </span>
                       <button
                         onClick={() => handleRemoveDependency(d.item_number)}
+                        aria-label={`Remove dependency #${d.item_number}`}
                         className="text-[var(--text-muted)] hover:text-red-400 transition-colors ml-2"
                       >
                         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -511,6 +514,7 @@ export default function CardDetail({ item, basePath, wsSlug, onClose, onUpdate }
                 <div key={st.id} className="flex items-center gap-2 group">
                   <button
                     onClick={() => handleToggleSubtask(st)}
+                    aria-label={st.completed ? "Mark incomplete" : "Mark complete"}
                     className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-all ${
                       st.completed
                         ? "bg-[var(--accent)] border-[var(--accent)] text-white"
@@ -528,6 +532,7 @@ export default function CardDetail({ item, basePath, wsSlug, onClose, onUpdate }
                   </span>
                   <button
                     onClick={() => handleDeleteSubtask(st.id)}
+                    aria-label="Remove subtask"
                     className="text-[var(--text-muted)] hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
                   >
                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
