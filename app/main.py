@@ -2,7 +2,7 @@ import logging
 import sys
 import time
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pythonjsonlogger import jsonlogger
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -84,3 +84,59 @@ app.include_router(admin.router, prefix="/api")
 @limiter.exempt
 def health(request: Request):
     return {"status": "ok"}
+
+
+# --- WebSocket ---
+from app.websocket import manager  # noqa: E402
+from app.auth import decode_token  # noqa: E402
+from app.database import SessionLocal  # noqa: E402
+from app.models import User, Project, Workspace, WorkspaceMember  # noqa: E402
+
+
+@app.websocket("/ws/board/{project_id}")
+async def board_websocket(websocket: WebSocket, project_id: int):
+    # Authenticate via query param
+    token = websocket.query_params.get("token")
+    if not token:
+        await websocket.close(code=4001)
+        return
+
+    user_id = decode_token(token)
+    if not user_id:
+        await websocket.close(code=4001)
+        return
+
+    db = SessionLocal()
+    try:
+        user = db.get(User, user_id)
+        if not user or not user.is_active:
+            await websocket.close(code=4001)
+            return
+
+        project = db.get(Project, project_id)
+        if not project:
+            await websocket.close(code=4004)
+            return
+
+        member = (
+            db.query(WorkspaceMember)
+            .filter_by(workspace_id=project.workspace_id, user_id=user.id)
+            .first()
+        )
+        if not member:
+            await websocket.close(code=4003)
+            return
+
+        user_info = {"user_id": user.id, "display_name": user.display_name}
+    finally:
+        db.close()
+
+    await manager.connect(project_id, websocket, user_info)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        pass
+    finally:
+        manager.disconnect(project_id, websocket)
+        await manager.broadcast_presence_after_disconnect(project_id)

@@ -3,6 +3,8 @@ import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
+import asyncio
+
 from app.activity import record_activity
 from app.automation import run_status_automations
 from app.database import get_db
@@ -10,7 +12,18 @@ from app.deps import get_current_user, get_workspace_member
 from app.models import Label, Project, User, Workspace, WorkflowState, WorkItem, WorkItemAssignee, WorkItemLabel
 from app.schemas import WorkItemCreate, WorkItemResponse, WorkItemUpdate
 
+from app.websocket import manager as ws_manager
+
 router = APIRouter(tags=["work_items"])
+
+
+def _broadcast(project_id: int, event_type: str, item_number: int):
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            loop.create_task(ws_manager.broadcast(project_id, {"type": event_type, "item_number": item_number}))
+    except RuntimeError:
+        pass
 
 
 def _resolve_project(ws_slug: str, project_slug: str, user: User, db: Session) -> Project:
@@ -86,6 +99,7 @@ def create_item(
     record_activity(db, item.id, user.id, "created")
     db.commit()
     db.refresh(item)
+    _broadcast(project.id, "item_created", item.item_number)
     return item
 
 
@@ -155,6 +169,7 @@ def update_item(
 
     db.commit()
     db.refresh(item)
+    _broadcast(project.id, "item_updated", item.item_number)
     return item
 
 
@@ -173,8 +188,10 @@ def delete_item(
     item = db.query(WorkItem).filter_by(project_id=project.id, item_number=item_number).first()
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
+    item_number = item.item_number
     db.delete(item)
     db.commit()
+    _broadcast(project.id, "item_deleted", item_number)
 
 
 # --- Assignees ---
@@ -203,6 +220,7 @@ def add_assignee(
         new_value=assignee_user.display_name if assignee_user else str(user_id),
     )
     db.commit()
+    _broadcast(project.id, "item_updated", item.item_number)
     return {"ok": True}
 
 
@@ -232,6 +250,7 @@ def remove_assignee(
     )
     db.delete(assn)
     db.commit()
+    _broadcast(project.id, "item_updated", item.item_number)
 
 
 # --- Labels ---
@@ -262,6 +281,7 @@ def add_item_label(
         new_value=label.name if label else str(label_id),
     )
     db.commit()
+    _broadcast(project.id, "item_updated", item.item_number)
     return {"ok": True}
 
 
@@ -291,3 +311,4 @@ def remove_item_label(
     )
     db.delete(wil)
     db.commit()
+    _broadcast(project.id, "item_updated", item.item_number)

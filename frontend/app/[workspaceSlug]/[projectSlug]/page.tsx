@@ -13,6 +13,7 @@ import ShortcutHelp from "@/components/ShortcutHelp";
 import BulkToolbar from "@/components/BulkToolbar";
 import BoardSettingsPopover from "@/components/BoardSettingsPopover";
 import { useKeyboardShortcuts, type Shortcut } from "@/lib/shortcuts";
+import { useBoardSocket } from "@/lib/useBoardSocket";
 import { useAuth } from "@/lib/auth";
 import Link from "next/link";
 
@@ -40,6 +41,7 @@ export default function ProjectBoardPage() {
   const [selectedItem, setSelectedItem] = useState<WorkItem | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
+  const [projectId, setProjectId] = useState<number | null>(null);
   const [templates, setTemplates] = useState<ItemTemplate[]>([]);
   const [boardSettings, setBoardSettings] = useState<BoardSettings>({
     wip_limits: {},
@@ -77,6 +79,7 @@ export default function ProjectBoardPage() {
   useEffect(() => {
     loadData();
     api.get<Project>(basePath).then((p) => {
+      setProjectId(p.id);
       if (p.board_settings) setBoardSettings(p.board_settings);
     }).catch(() => {});
     api.get<ItemTemplate[]>(`${basePath}/templates`).then(setTemplates).catch(() => {});
@@ -87,6 +90,12 @@ export default function ProjectBoardPage() {
       api.get<Workspace>(`/workspaces/${wsSlug}`).then(setWorkspace).catch(() => {});
     }
   }, [wsSlug, user]);
+
+  const { presence } = useBoardSocket(projectId, useCallback((event) => {
+    if (event.type === "item_created" || event.type === "item_updated" || event.type === "item_deleted") {
+      loadData();
+    }
+  }, [loadData]));
 
   function updateBoardSettings(newSettings: BoardSettings) {
     setBoardSettings(newSettings);
@@ -222,6 +231,24 @@ export default function ProjectBoardPage() {
           )}
         </div>
         <div className="flex items-center gap-2">
+          {presence.length > 0 && (
+            <div className="flex items-center gap-1 mr-1">
+              <div className="flex -space-x-1.5">
+                {presence.slice(0, 5).map((p) => (
+                  <div
+                    key={p.user_id}
+                    className="w-6 h-6 rounded-full bg-gradient-to-br from-emerald-500/80 to-teal-500/80 flex items-center justify-center text-[9px] text-white font-medium border-2 border-[var(--bg-primary)] ring-1 ring-emerald-500/30"
+                    title={p.display_name}
+                  >
+                    {p.display_name[0].toUpperCase()}
+                  </div>
+                ))}
+              </div>
+              {presence.length > 5 && (
+                <span className="text-[10px] text-[var(--text-muted)]">+{presence.length - 5}</span>
+              )}
+            </div>
+          )}
           <button
             onClick={() => setShowSearch(true)}
             className="text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors px-2.5 py-1.5 rounded-lg hover:bg-[var(--bg-tertiary)] flex items-center gap-1.5"
