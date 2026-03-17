@@ -3,15 +3,17 @@
 import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { api } from "@/lib/api";
-import type { DependencyItem, WorkItem, WorkflowState } from "@/lib/types";
+import type { DependencyItem, WatchStatus, WorkItem, WorkflowState } from "@/lib/types";
 import ActivityFeed from "./ActivityFeed";
 import AttachmentList from "./AttachmentList";
 import CustomFieldInput from "./CustomFieldInput";
 import FileUpload from "./FileUpload";
+import MentionTextarea from "./MentionTextarea";
 
 interface CardDetailProps {
   item: WorkItem;
   basePath: string;
+  wsSlug: string;
   onClose: () => void;
   onUpdate: (data: Partial<WorkItem>) => Promise<void>;
 }
@@ -44,7 +46,7 @@ interface AttachmentItem {
 
 const PRIORITIES = ["low", "medium", "high", "urgent"];
 
-export default function CardDetail({ item, basePath, onClose, onUpdate }: CardDetailProps) {
+export default function CardDetail({ item, basePath, wsSlug, onClose, onUpdate }: CardDetailProps) {
   const [title, setTitle] = useState(item.title);
   const [description, setDescription] = useState(item.description || "");
   const [priority, setPriority] = useState(item.priority);
@@ -67,6 +69,9 @@ export default function CardDetail({ item, basePath, onClose, onUpdate }: CardDe
   // Attachments
   const [attachments, setAttachments] = useState<AttachmentItem[]>([]);
 
+  // Watch
+  const [watchStatus, setWatchStatus] = useState<WatchStatus>({ watching: false, watcher_count: 0 });
+
   const itemPath = `${basePath}/items/${item.item_number}`;
 
   useEffect(() => {
@@ -78,6 +83,7 @@ export default function CardDetail({ item, basePath, onClose, onUpdate }: CardDe
       setFieldValues(map);
     });
     api.get<AttachmentItem[]>(`${itemPath}/attachments`).then(setAttachments);
+    api.get<WatchStatus>(`${itemPath}/watch`).then(setWatchStatus);
     api.get<{ blocks: DependencyItem[]; blocked_by: DependencyItem[] }>(`${itemPath}/dependencies`).then((deps) => {
       setBlocks(deps.blocks);
       setBlockedBy(deps.blocked_by);
@@ -114,6 +120,16 @@ export default function CardDetail({ item, basePath, onClose, onUpdate }: CardDe
     setAttachments((prev) => prev.filter((a) => a.id !== id));
   }
 
+  async function handleToggleWatch() {
+    if (watchStatus.watching) {
+      const res = await api.delete(`${itemPath}/watch`) as unknown as WatchStatus;
+      setWatchStatus(res);
+    } else {
+      const res = await api.post<WatchStatus>(`${itemPath}/watch`);
+      setWatchStatus(res);
+    }
+  }
+
   async function handleAddDependency() {
     const num = parseInt(depInput);
     if (!num) return;
@@ -145,9 +161,28 @@ export default function CardDetail({ item, basePath, onClose, onUpdate }: CardDe
         <div className="p-6">
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
-            <span className="text-sm text-[var(--text-muted)] font-mono bg-[var(--bg-tertiary)] px-2.5 py-1 rounded-lg border border-[var(--border-subtle)]">
-              #{item.item_number}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-[var(--text-muted)] font-mono bg-[var(--bg-tertiary)] px-2.5 py-1 rounded-lg border border-[var(--border-subtle)]">
+                #{item.item_number}
+              </span>
+              <button
+                onClick={handleToggleWatch}
+                className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border transition-all ${
+                  watchStatus.watching
+                    ? "bg-[var(--accent)]/10 border-[var(--accent)]/30 text-[var(--accent)]"
+                    : "bg-[var(--bg-tertiary)] border-[var(--border-subtle)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--border)]"
+                }`}
+              >
+                <svg className="w-3.5 h-3.5" fill={watchStatus.watching ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+                {watchStatus.watching ? "Watching" : "Watch"}
+                {watchStatus.watcher_count > 0 && (
+                  <span className="text-[10px] opacity-70">{watchStatus.watcher_count}</span>
+                )}
+              </button>
+            </div>
             <button
               onClick={onClose}
               className="w-8 h-8 rounded-lg flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] transition-all"
@@ -222,9 +257,10 @@ export default function CardDetail({ item, basePath, onClose, onUpdate }: CardDe
               </button>
             </div>
             {editingDesc ? (
-              <textarea
+              <MentionTextarea
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                onChange={setDescription}
+                wsSlug={wsSlug}
                 rows={8}
                 placeholder="Describe this item (Markdown supported)..."
                 className="input-base resize-none"
@@ -414,7 +450,7 @@ export default function CardDetail({ item, basePath, onClose, onUpdate }: CardDe
           {/* Activity */}
           <div>
             <label className="block text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-3">Activity</label>
-            <ActivityFeed basePath={basePath} itemNumber={item.item_number} />
+            <ActivityFeed basePath={basePath} itemNumber={item.item_number} wsSlug={wsSlug} />
           </div>
         </div>
       </div>

@@ -307,6 +307,7 @@ export default function ProjectBoardPage() {
           onItemCreate={onItemCreate}
           onItemUpdate={onItemUpdate}
           basePath={basePath}
+          wsSlug={wsSlug}
           onRefresh={loadData}
           selectable={isAdmin}
           selectedIds={selectedIds}
@@ -333,6 +334,7 @@ export default function ProjectBoardPage() {
         <CardDetail
           item={selectedItem}
           basePath={basePath}
+          wsSlug={wsSlug}
           onClose={() => setSelectedItem(null)}
           onUpdate={async (data) => {
             await onItemUpdate(selectedItem.item_number, data);

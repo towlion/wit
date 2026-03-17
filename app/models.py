@@ -418,6 +418,20 @@ class AutomationRule(Base):
     trigger_state: Mapped["WorkflowState | None"] = relationship()
 
 
+class ItemWatcher(Base):
+    __tablename__ = "item_watchers"
+
+    work_item_id: Mapped[int] = mapped_column(
+        ForeignKey("work_items.id", ondelete="CASCADE"), primary_key=True
+    )
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
 class WebhookConfig(Base):
     __tablename__ = "webhook_configs"
 

@@ -107,6 +107,11 @@ export interface ActivityEvent {
   user: User | null;
 }
 
+export interface WatchStatus {
+  watching: boolean;
+  watcher_count: number;
+}
+
 export interface SearchResult {
   item: WorkItem;
   headline: string;

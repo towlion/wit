@@ -3,7 +3,7 @@ import logging
 import httpx
 from sqlalchemy.orm import Session
 
-from app.models import Notification, WebhookConfig, WorkItem, WorkItemAssignee
+from app.models import ItemWatcher, Notification, WebhookConfig, WorkItem, WorkItemAssignee
 
 logger = logging.getLogger(__name__)
 
@@ -16,12 +16,15 @@ def notify_item_watchers(
     title: str,
     body: str = "",
 ):
-    # Notify assignees + creator, excluding the actor
+    # Notify assignees + creator + explicit watchers, excluding the actor
     watcher_ids = set()
     watcher_ids.add(work_item.created_by_id)
     assignees = db.query(WorkItemAssignee).filter_by(work_item_id=work_item.id).all()
     for a in assignees:
         watcher_ids.add(a.user_id)
+    explicit_watchers = db.query(ItemWatcher).filter_by(work_item_id=work_item.id).all()
+    for w in explicit_watchers:
+        watcher_ids.add(w.user_id)
     watcher_ids.discard(actor_id)
 
     for uid in watcher_ids:

@@ -4,7 +4,8 @@ from sqlalchemy.orm import Session
 from app.activity import record_activity
 from app.database import get_db
 from app.deps import get_current_user
-from app.models import ActivityEvent, Project, User, Workspace, WorkItem
+from app.mentions import extract_mentions, resolve_mentioned_users
+from app.models import ActivityEvent, ItemWatcher, Notification, Project, User, Workspace, WorkItem
 from app.schemas import ActivityEventResponse, CommentCreate, CommentUpdate
 
 router = APIRouter(tags=["activity"])
@@ -59,6 +60,46 @@ def create_comment(
 ):
     item = _resolve_item(ws_slug, project_slug, item_number, user, db)
     event = record_activity(db, item.id, user.id, "comment", body=body.body)
+
+    # Auto-watch on comment
+    existing_watch = db.query(ItemWatcher).filter_by(work_item_id=item.id, user_id=user.id).first()
+    if not existing_watch:
+        db.add(ItemWatcher(work_item_id=item.id, user_id=user.id))
+
+    # Process @mentions
+    mentioned_names = extract_mentions(body.body)
+    if mentioned_names:
+        from app.models import WorkItemAssignee
+        from app.notifications import notify_item_watchers  # noqa: F811
+
+        # Build the set of users who already get a "comment" notification
+        already_notified = set()
+        already_notified.add(item.created_by_id)
+        for a in db.query(WorkItemAssignee).filter_by(work_item_id=item.id).all():
+            already_notified.add(a.user_id)
+        for w in db.query(ItemWatcher).filter_by(work_item_id=item.id).all():
+            already_notified.add(w.user_id)
+        already_notified.discard(user.id)
+
+        workspace = db.query(Workspace).filter_by(slug=ws_slug).first()
+        mentioned_users = resolve_mentioned_users(db, mentioned_names, workspace.id)
+        title = f"#{item.item_number} {item.title}"
+        for mu in mentioned_users:
+            if mu.id == user.id:
+                continue
+            # Auto-watch mentioned user
+            if not db.query(ItemWatcher).filter_by(work_item_id=item.id, user_id=mu.id).first():
+                db.add(ItemWatcher(work_item_id=item.id, user_id=mu.id))
+            # Only create mention notification if not already getting a comment notification
+            if mu.id not in already_notified:
+                db.add(Notification(
+                    user_id=mu.id,
+                    work_item_id=item.id,
+                    event_type="mention",
+                    title=title,
+                    body=f"{user.display_name} mentioned you: {body.body[:200]}",
+                ))
+
     db.commit()
     db.refresh(event)
     return event

@@ -22,6 +22,7 @@ interface BoardProps {
   onItemCreate: (statusId: number, title: string) => Promise<void>;
   onItemUpdate: (itemNumber: number, data: Partial<WorkItem>) => Promise<void>;
   basePath: string;
+  wsSlug: string;
   onRefresh: () => void;
   selectable?: boolean;
   selectedIds?: Set<number>;
@@ -117,6 +118,7 @@ export default function Board({
   onItemCreate,
   onItemUpdate,
   basePath,
+  wsSlug,
   onRefresh,
   selectable,
   selectedIds,
@@ -269,6 +271,7 @@ export default function Board({
         <CardDetail
           item={selectedItem}
           basePath={basePath}
+          wsSlug={wsSlug}
           onClose={() => setSelectedItem(null)}
           onUpdate={async (data) => {
             await onItemUpdate(selectedItem.item_number, data);

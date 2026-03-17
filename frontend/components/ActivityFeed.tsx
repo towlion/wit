@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useState, FormEvent } from "react";
+import { useEffect, useState, FormEvent, ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import { api } from "@/lib/api";
 import type { ActivityEvent } from "@/lib/types";
+import MentionTextarea from "./MentionTextarea";
 
 interface ActivityFeedProps {
   basePath: string;
   itemNumber: number;
+  wsSlug: string;
 }
 
 function formatEventDescription(event: ActivityEvent): string {
@@ -45,7 +47,21 @@ function timeAgo(dateStr: string): string {
   return `${days}d ago`;
 }
 
-export default function ActivityFeed({ basePath, itemNumber }: ActivityFeedProps) {
+function processMentions(text: string): ReactNode[] {
+  const parts = text.split(/(@[\w ]+?)(?=\s@|\s[^@]|$|[.,;:!?\)])/g);
+  return parts.map((part, i) => {
+    if (part.startsWith("@")) {
+      return (
+        <span key={i} className="text-[var(--accent)] font-medium">
+          {part}
+        </span>
+      );
+    }
+    return part;
+  });
+}
+
+export default function ActivityFeed({ basePath, itemNumber, wsSlug }: ActivityFeedProps) {
   const [events, setEvents] = useState<ActivityEvent[]>([]);
   const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -85,19 +101,22 @@ export default function ActivityFeed({ basePath, itemNumber }: ActivityFeedProps
     <div>
       {/* Comment input */}
       <form onSubmit={handleSubmitComment} className="mb-4">
-        <textarea
-          value={comment}
-          onChange={(e) => setComment(e.target.value)}
-          placeholder="Write a comment... (Markdown supported)"
-          rows={3}
-          className="input-base resize-none mb-2"
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-              e.preventDefault();
-              handleSubmitComment(e);
-            }
-          }}
-        />
+        <div className="mb-2">
+          <MentionTextarea
+            value={comment}
+            onChange={setComment}
+            wsSlug={wsSlug}
+            placeholder="Write a comment... (Markdown supported)"
+            rows={3}
+            className="input-base resize-none"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                handleSubmitComment(e);
+              }
+            }}
+          />
+        </div>
         <div className="flex justify-between items-center">
           <span className="text-[10px] text-[var(--text-muted)]">Cmd+Enter to submit</span>
           <button
@@ -164,7 +183,16 @@ export default function ActivityFeed({ basePath, itemNumber }: ActivityFeedProps
                       </div>
                     ) : (
                       <div className="prose prose-invert prose-sm max-w-none text-xs p-2.5 rounded-lg bg-[var(--bg-tertiary)] border border-[var(--border-subtle)]">
-                        <ReactMarkdown>{event.body || ""}</ReactMarkdown>
+                        <ReactMarkdown
+                          components={{
+                            p: ({ children }) => {
+                              const processed = typeof children === "string" ? processMentions(children) : children;
+                              return <p>{processed}</p>;
+                            },
+                          }}
+                        >
+                          {event.body || ""}
+                        </ReactMarkdown>
                       </div>
                     )}
                     {editingId !== event.id && (

@@ -368,6 +368,12 @@ class NotificationResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+# --- Watch ---
+class WatchResponse(BaseModel):
+    watching: bool
+    watcher_count: int
+
+
 # --- Webhooks ---
 class WebhookConfigCreate(BaseModel):
     url: str
