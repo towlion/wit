@@ -198,6 +198,35 @@ body {
   animation: fade-in-up 0.3s ease-out;
 }
 
+/* Slide out right */
+@keyframes slide-out-right {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+}
+
+.animate-slide-out-right {
+  animation: slide-out-right 0.2s ease-in forwards;
+}
+
+/* Screen reader only */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
 /* Subtle noise texture on bg */
 .noise-bg {
   position: relative;

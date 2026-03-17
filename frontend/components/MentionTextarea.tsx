@@ -56,7 +56,7 @@ export default function MentionTextarea({
               setSuggestions(users);
               setSelectedIdx(0);
             })
-            .catch(() => setSuggestions([]));
+            .catch((e) => { console.warn("Failed to search mentions:", e.message); setSuggestions([]); });
         }, 200);
       } else {
         setSuggestions([]);
@@ -128,14 +128,18 @@ export default function MentionTextarea({
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
         rows={rows}
+        aria-autocomplete="list"
+        aria-controls={suggestions.length > 0 && mentionQuery !== null ? "mention-suggestions" : undefined}
         className={`${className} ${showToolbar ? "rounded-t-none border-t-0" : ""}`}
       />
       {suggestions.length > 0 && mentionQuery !== null && (
-        <div className="absolute left-0 right-0 z-50 mt-1 bg-[var(--bg-primary)] border border-[var(--border)] rounded-xl shadow-2xl overflow-hidden max-h-48 overflow-y-auto">
+        <div id="mention-suggestions" role="listbox" aria-label="User suggestions" className="absolute left-0 right-0 z-50 mt-1 bg-[var(--bg-primary)] border border-[var(--border)] rounded-xl shadow-2xl overflow-hidden max-h-48 overflow-y-auto">
           {suggestions.map((user, i) => (
             <button
               key={user.id}
               type="button"
+              role="option"
+              aria-selected={i === selectedIdx}
               onClick={() => selectSuggestion(user)}
               className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2 transition-colors ${
                 i === selectedIdx

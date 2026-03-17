@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { api } from "@/lib/api";
 import type { DependencyItem, Subtask, WatchStatus, WorkItem, WorkflowState } from "@/lib/types";
@@ -9,6 +9,7 @@ import AttachmentList from "./AttachmentList";
 import CustomFieldInput from "./CustomFieldInput";
 import FileUpload from "./FileUpload";
 import MentionTextarea from "./MentionTextarea";
+import { useFocusTrap } from "@/lib/useFocusTrap";
 
 interface CardDetailProps {
   item: WorkItem;
@@ -75,6 +76,9 @@ export default function CardDetail({ item, basePath, wsSlug, onClose, onUpdate }
   // Subtasks
   const [subtasks, setSubtasks] = useState<Subtask[]>([]);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
+
+  const panelRef = React.useRef<HTMLDivElement>(null);
+  useFocusTrap(panelRef);
 
   const itemPath = `${basePath}/items/${item.item_number}`;
 
@@ -175,10 +179,11 @@ export default function CardDetail({ item, basePath, wsSlug, onClose, onUpdate }
   const subtaskCompleted = subtasks.filter((s) => s.completed).length;
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose} role="dialog" aria-modal="true" aria-label={`Work item #${item.item_number}`}>
       <div className="absolute inset-0 bg-black/60 animate-fade-in" />
 
       <div
+        ref={panelRef}
         className="relative w-full max-w-lg bg-[var(--bg-primary)] border-l border-[var(--border)] h-full overflow-y-auto animate-slide-in-right"
         onClick={(e) => e.stopPropagation()}
       >
@@ -191,6 +196,7 @@ export default function CardDetail({ item, basePath, wsSlug, onClose, onUpdate }
               </span>
               <button
                 onClick={handleToggleWatch}
+                aria-label={watchStatus.watching ? "Unwatch item" : "Watch item"}
                 className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border transition-all ${
                   watchStatus.watching
                     ? "bg-[var(--accent)]/10 border-[var(--accent)]/30 text-[var(--accent)]"
@@ -209,6 +215,7 @@ export default function CardDetail({ item, basePath, wsSlug, onClose, onUpdate }
             </div>
             <button
               onClick={onClose}
+              aria-label="Close detail panel"
               className="w-8 h-8 rounded-lg flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] transition-all"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -222,6 +229,7 @@ export default function CardDetail({ item, basePath, wsSlug, onClose, onUpdate }
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
+            aria-label="Item title"
             className="w-full text-lg font-semibold bg-transparent border-none focus:outline-none mb-6 tracking-tight placeholder:text-[var(--text-muted)]"
             placeholder="Item title"
           />
@@ -412,6 +420,7 @@ export default function CardDetail({ item, basePath, wsSlug, onClose, onUpdate }
                 value={depInput}
                 onChange={(e) => setDepInput(e.target.value)}
                 placeholder="Item #"
+                aria-label="Item number for dependency"
                 className="input-base py-1.5 text-xs w-20"
                 onKeyDown={(e) => e.key === "Enter" && handleAddDependency()}
               />
@@ -518,6 +527,7 @@ export default function CardDetail({ item, basePath, wsSlug, onClose, onUpdate }
                 value={newSubtaskTitle}
                 onChange={(e) => setNewSubtaskTitle(e.target.value)}
                 placeholder="Add a subtask..."
+                aria-label="New subtask title"
                 className="input-base py-1.5 text-sm flex-1"
                 onKeyDown={(e) => e.key === "Enter" && handleAddSubtask()}
               />

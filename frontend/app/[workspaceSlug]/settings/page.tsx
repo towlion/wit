@@ -54,14 +54,14 @@ export default function WorkspaceSettingsPage() {
 
   useEffect(() => {
     api.get<Workspace>(`/workspaces/${wsSlug}`).then(setWorkspace);
-    api.get<Invite[]>(`/workspaces/${wsSlug}/invites`).then(setInvites).catch(() => {});
-    api.get<Webhook[]>(`/workspaces/${wsSlug}/webhooks`).then(setWebhooks).catch(() => {});
+    api.get<Invite[]>(`/workspaces/${wsSlug}/invites`).then(setInvites).catch((e) => console.warn("Failed to load invites:", e.message));
+    api.get<Webhook[]>(`/workspaces/${wsSlug}/webhooks`).then(setWebhooks).catch((e) => console.warn("Failed to load webhooks:", e.message));
   }, [wsSlug]);
 
   const loadAudit = useCallback(() => {
     const params = new URLSearchParams({ limit: "50", offset: String(auditOffset) });
     if (auditEventType) params.set("event_type", auditEventType);
-    api.get<ActivityEvent[]>(`/workspaces/${wsSlug}/audit?${params}`).then(setAuditEvents).catch(() => {});
+    api.get<ActivityEvent[]>(`/workspaces/${wsSlug}/audit?${params}`).then(setAuditEvents).catch((e) => console.warn("Failed to load audit events:", e.message));
   }, [wsSlug, auditEventType, auditOffset]);
 
   useEffect(() => {
@@ -70,8 +70,8 @@ export default function WorkspaceSettingsPage() {
 
   useEffect(() => {
     if (activeTab === "stats") {
-      api.get<WorkspaceStats>(`/workspaces/${wsSlug}/stats`).then(setStats).catch(() => {});
-      api.get<WorkspaceInsights>(`/workspaces/${wsSlug}/insights`).then(setWsInsights).catch(() => {});
+      api.get<WorkspaceStats>(`/workspaces/${wsSlug}/stats`).then(setStats).catch((e) => console.warn("Failed to load stats:", e.message));
+      api.get<WorkspaceInsights>(`/workspaces/${wsSlug}/insights`).then(setWsInsights).catch((e) => console.warn("Failed to load insights:", e.message));
     }
   }, [activeTab, wsSlug]);
 

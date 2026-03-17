@@ -65,7 +65,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     document.documentElement.dataset.theme = r;
     const token = localStorage.getItem("token");
     if (token) {
-      api.patch("/profile", { theme: t }).catch(() => {});
+      api.patch("/profile", { theme: t }).catch((e) => console.warn("Failed to save theme preference:", e.message));
     }
   }, []);
 

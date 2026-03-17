@@ -129,6 +129,7 @@ export default function Board({
 }: BoardProps) {
   const [activeId, setActiveId] = useState<number | null>(null);
   const [selectedItem, setSelectedItem] = useState<WorkItem | null>(null);
+  const [liveAnnouncement, setLiveAnnouncement] = useState("");
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -179,10 +180,14 @@ export default function Board({
     }
 
     if (targetStatusId !== item.status_id || targetPosition !== item.position) {
+      const targetState = states.find((s) => s.id === targetStatusId);
       await onItemUpdate(item.item_number, {
         status_id: targetStatusId,
         position: targetPosition,
       });
+      if (targetState) {
+        setLiveAnnouncement(`Item #${item.item_number} moved to ${targetState.name}`);
+      }
     }
   }
 
@@ -194,6 +199,7 @@ export default function Board({
 
   return (
     <>
+      <div aria-live="polite" className="sr-only">{liveAnnouncement}</div>
       <DndContext
         sensors={sensors}
         onDragStart={handleDragStart}

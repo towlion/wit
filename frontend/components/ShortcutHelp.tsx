@@ -1,16 +1,22 @@
 "use client";
 
+import { useRef } from "react";
 import { SHORTCUT_LIST } from "@/lib/shortcuts";
+import { useFocusTrap } from "@/lib/useFocusTrap";
 
 interface ShortcutHelpProps {
   onClose: () => void;
 }
 
 export default function ShortcutHelp({ onClose }: ShortcutHelpProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef);
+
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center" onClick={onClose}>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center" onClick={onClose} role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
       <div className="absolute inset-0 bg-black/60 animate-fade-in" />
       <div
+        ref={dialogRef}
         className="relative bg-[var(--bg-primary)] border border-[var(--border)] rounded-2xl shadow-2xl shadow-black/40 w-full max-w-sm p-5 animate-fade-in"
         onClick={(e) => e.stopPropagation()}
       >
@@ -18,6 +24,7 @@ export default function ShortcutHelp({ onClose }: ShortcutHelpProps) {
           <h2 className="text-sm font-semibold tracking-tight">Keyboard shortcuts</h2>
           <button
             onClick={onClose}
+            aria-label="Close keyboard shortcuts"
             className="w-7 h-7 rounded-lg flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] transition-all"
           >
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

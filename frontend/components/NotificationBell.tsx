@@ -23,7 +23,7 @@ export default function NotificationBell() {
   // Poll unread count
   useEffect(() => {
     function poll() {
-      api.get<{ count: number }>("/notifications/unread-count").then((r) => setCount(r.count)).catch(() => {});
+      api.get<{ count: number }>("/notifications/unread-count").then((r) => setCount(r.count)).catch((e) => console.warn("Failed to poll notifications:", e.message));
     }
     poll();
     const interval = setInterval(poll, 30000);
@@ -33,7 +33,7 @@ export default function NotificationBell() {
   // Load notifications when opened
   useEffect(() => {
     if (open) {
-      api.get<Notification[]>("/notifications?limit=20").then(setNotifications).catch(() => {});
+      api.get<Notification[]>("/notifications?limit=20").then(setNotifications).catch((e) => console.warn("Failed to load notifications:", e.message));
     }
   }, [open]);
 
@@ -62,13 +62,16 @@ export default function NotificationBell() {
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(!open)}
+        aria-label="Notifications"
+        aria-expanded={open}
+        aria-haspopup="true"
         className="relative w-8 h-8 rounded-lg flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] transition-all"
       >
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
         </svg>
         {count > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-red-500 text-[9px] text-white font-bold flex items-center justify-center">
+          <span aria-live="polite" aria-label={`${count} unread notification${count !== 1 ? "s" : ""}`} className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-red-500 text-[9px] text-white font-bold flex items-center justify-center">
             {count > 9 ? "9+" : count}
           </span>
         )}
@@ -88,13 +91,14 @@ export default function NotificationBell() {
             )}
           </div>
 
-          <div className="max-h-[360px] overflow-y-auto">
+          <div role="list" aria-label="Notifications" className="max-h-[360px] overflow-y-auto">
             {notifications.length === 0 ? (
               <div className="py-8 text-center text-xs text-[var(--text-muted)]">No notifications</div>
             ) : (
               notifications.map((n) => (
                 <button
                   key={n.id}
+                  role="listitem"
                   onClick={() => !n.read && markRead(n.id)}
                   className={`w-full text-left px-3 py-2.5 border-b border-[var(--border-subtle)] transition-colors ${
                     n.read

@@ -16,6 +16,7 @@ import BoardSettingsPopover from "@/components/BoardSettingsPopover";
 import { useKeyboardShortcuts, type Shortcut } from "@/lib/shortcuts";
 import { useBoardSocket } from "@/lib/useBoardSocket";
 import { useAuth } from "@/lib/auth";
+import { useToast } from "@/lib/toast";
 import Link from "next/link";
 
 type ViewMode = "board" | "calendar" | "dependencies";
@@ -26,6 +27,7 @@ export default function ProjectBoardPage() {
   const projectSlug = params.projectSlug as string;
   const basePath = `/workspaces/${wsSlug}/projects/${projectSlug}`;
   const { user } = useAuth();
+  const { toast } = useToast();
 
   const [states, setStates] = useState<WorkflowState[]>([]);
   const [items, setItems] = useState<WorkItem[]>([]);
@@ -94,13 +96,13 @@ export default function ProjectBoardPage() {
     api.get<Project>(basePath).then((p) => {
       setProjectId(p.id);
       if (p.board_settings) setBoardSettings(p.board_settings);
-    }).catch(() => {});
-    api.get<ItemTemplate[]>(`${basePath}/templates`).then(setTemplates).catch(() => {});
+    }).catch((e) => console.warn("Failed to load project:", e.message));
+    api.get<ItemTemplate[]>(`${basePath}/templates`).then(setTemplates).catch((e) => console.warn("Failed to load templates:", e.message));
   }, [loadData, basePath]);
 
   useEffect(() => {
     if (user) {
-      api.get<Workspace>(`/workspaces/${wsSlug}`).then(setWorkspace).catch(() => {});
+      api.get<Workspace>(`/workspaces/${wsSlug}`).then(setWorkspace).catch((e) => console.warn("Failed to load workspace:", e.message));
     }
   }, [wsSlug, user]);
 
@@ -112,7 +114,7 @@ export default function ProjectBoardPage() {
 
   function updateBoardSettings(newSettings: BoardSettings) {
     setBoardSettings(newSettings);
-    api.patch(basePath, { board_settings: newSettings }).catch(() => {});
+    api.patch(basePath, { board_settings: newSettings }).catch(() => toast.error("Failed to save board settings"));
   }
 
   function handleFiltersChange(f: Filters) {
@@ -162,7 +164,7 @@ export default function ProjectBoardPage() {
     // Apply template labels
     if (tmpl.label_ids && tmpl.label_ids.length > 0) {
       for (const labelId of tmpl.label_ids) {
-        await api.post(`${basePath}/items/${item.item_number}/labels/${labelId}`).catch(() => {});
+        await api.post(`${basePath}/items/${item.item_number}/labels/${labelId}`).catch(() => toast.error("Failed to apply template label"));
       }
     }
     loadData();
@@ -183,30 +185,45 @@ export default function ProjectBoardPage() {
   }
 
   async function handleBulkArchive() {
-    await api.post<BulkOperationResult>(`/workspaces/${wsSlug}/bulk/archive`, {
-      item_ids: Array.from(selectedIds),
-    });
-    setSelectedIds(new Set());
-    loadData();
+    try {
+      await api.post<BulkOperationResult>(`/workspaces/${wsSlug}/bulk/archive`, {
+        item_ids: Array.from(selectedIds),
+      });
+      toast.success(`Archived ${selectedIds.size} item${selectedIds.size > 1 ? "s" : ""}`);
+      setSelectedIds(new Set());
+      loadData();
+    } catch {
+      toast.error("Failed to archive items");
+    }
   }
 
   async function handleBulkReassign(assigneeId: number) {
-    await api.post<BulkOperationResult>(`/workspaces/${wsSlug}/bulk/reassign`, {
-      item_ids: Array.from(selectedIds),
-      assignee_id: assigneeId,
-    });
-    setSelectedIds(new Set());
-    loadData();
+    try {
+      await api.post<BulkOperationResult>(`/workspaces/${wsSlug}/bulk/reassign`, {
+        item_ids: Array.from(selectedIds),
+        assignee_id: assigneeId,
+      });
+      toast.success(`Reassigned ${selectedIds.size} item${selectedIds.size > 1 ? "s" : ""}`);
+      setSelectedIds(new Set());
+      loadData();
+    } catch {
+      toast.error("Failed to reassign items");
+    }
   }
 
   async function handleBulkLabel(labelId: number, action: "add" | "remove") {
-    await api.post<BulkOperationResult>(`/workspaces/${wsSlug}/bulk/labels`, {
-      item_ids: Array.from(selectedIds),
-      label_id: labelId,
-      action,
-    });
-    setSelectedIds(new Set());
-    loadData();
+    try {
+      await api.post<BulkOperationResult>(`/workspaces/${wsSlug}/bulk/labels`, {
+        item_ids: Array.from(selectedIds),
+        label_id: labelId,
+        action,
+      });
+      toast.success(`Updated labels on ${selectedIds.size} item${selectedIds.size > 1 ? "s" : ""}`);
+      setSelectedIds(new Set());
+      loadData();
+    } catch {
+      toast.error("Failed to update labels");
+    }
   }
 
   if (loading) {

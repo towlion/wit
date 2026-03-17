@@ -105,6 +105,7 @@ export default function QuickCreate({ onSubmit, onSubmitFromTemplate, templates 
         }}
         disabled={submitting}
         placeholder="Enter title, press Enter..."
+        aria-label="New item title"
         className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-secondary)] border border-[var(--accent)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent-glow)] shadow-[0_0_12px_var(--accent-glow)] transition-all"
       />
     </div>

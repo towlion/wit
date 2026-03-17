@@ -54,10 +54,10 @@ export default function ProjectSettingsPage() {
   useEffect(() => {
     api.get<WorkflowState[]>(`${basePath}/states`).then(setStates);
     api.get<Label[]>(`${basePath}/labels`).then(setLabels);
-    api.get<FieldDef[]>(`${basePath}/fields`).then(setFields).catch(() => {});
-    api.get<ItemTemplate[]>(`${basePath}/templates`).then(setTemplates).catch(() => {});
-    api.get<AutomationRule[]>(`${basePath}/automations`).then(setRules).catch(() => {});
-    api.get<{ members: Member[] }>(`/workspaces/${wsSlug}`).then((ws) => setMembers(ws.members)).catch(() => {});
+    api.get<FieldDef[]>(`${basePath}/fields`).then(setFields).catch((e) => console.warn("Failed to load fields:", e.message));
+    api.get<ItemTemplate[]>(`${basePath}/templates`).then(setTemplates).catch((e) => console.warn("Failed to load templates:", e.message));
+    api.get<AutomationRule[]>(`${basePath}/automations`).then(setRules).catch((e) => console.warn("Failed to load automations:", e.message));
+    api.get<{ members: Member[] }>(`/workspaces/${wsSlug}`).then((ws) => setMembers(ws.members)).catch((e) => console.warn("Failed to load members:", e.message));
   }, [basePath, wsSlug]);
 
   async function addField(e: FormEvent) {

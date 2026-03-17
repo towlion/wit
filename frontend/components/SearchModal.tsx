@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
+import { useFocusTrap } from "@/lib/useFocusTrap";
 import type { SearchResult } from "@/lib/types";
 
 interface SearchModalProps {
@@ -16,7 +17,9 @@ export default function SearchModal({ basePath, onClose, onSelect }: SearchModal
   const [loading, setLoading] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useFocusTrap(dialogRef);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -61,9 +64,10 @@ export default function SearchModal({ basePath, onClose, onSelect }: SearchModal
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-start justify-center pt-[15vh]" onClick={onClose}>
+    <div className="fixed inset-0 z-[60] flex items-start justify-center pt-[15vh]" onClick={onClose} role="dialog" aria-modal="true" aria-label="Search work items">
       <div className="absolute inset-0 bg-black/60 animate-fade-in" />
       <div
+        ref={dialogRef}
         className="relative bg-[var(--bg-primary)] border border-[var(--border)] rounded-2xl shadow-2xl shadow-black/40 w-full max-w-lg overflow-hidden animate-fade-in"
         onClick={(e) => e.stopPropagation()}
       >
@@ -78,6 +82,10 @@ export default function SearchModal({ basePath, onClose, onSelect }: SearchModal
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Search work items..."
+            aria-label="Search work items"
+            role="combobox"
+            aria-expanded={results.length > 0}
+            aria-controls="search-results"
             className="flex-1 bg-transparent text-sm focus:outline-none placeholder:text-[var(--text-muted)]"
           />
           {loading && (
@@ -86,10 +94,12 @@ export default function SearchModal({ basePath, onClose, onSelect }: SearchModal
         </div>
 
         {results.length > 0 && (
-          <div className="max-h-[300px] overflow-y-auto py-1">
+          <div id="search-results" role="listbox" aria-label="Search results" className="max-h-[300px] overflow-y-auto py-1">
             {results.map((r, i) => (
               <button
                 key={r.item.id}
+                role="option"
+                aria-selected={i === selectedIndex}
                 onClick={() => {
                   onSelect?.(r.item.item_number);
                   onClose();

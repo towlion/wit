@@ -64,6 +64,9 @@ export default function Card({ item, overlay, onClick, selectable, selected, onT
       {/* Selection checkbox */}
       {selectable && (
         <button
+          role="checkbox"
+          aria-checked={selected}
+          aria-label={selected ? "Deselect item" : "Select item"}
           onClick={(e) => { e.stopPropagation(); onToggleSelect?.(); }}
           className={`absolute top-2 right-2 w-4 h-4 rounded border transition-all z-10 flex items-center justify-center ${
             selected

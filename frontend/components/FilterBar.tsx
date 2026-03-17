@@ -34,7 +34,7 @@ export default function FilterBar({ filters, onChange, labels, states = [], memb
 
   useEffect(() => {
     if (basePath) {
-      api.get<SavedView[]>(`${basePath}/views`).then(setSavedViews).catch(() => {});
+      api.get<SavedView[]>(`${basePath}/views`).then(setSavedViews).catch((e) => console.warn("Failed to load saved views:", e.message));
     }
   }, [basePath]);
 
@@ -70,6 +70,7 @@ export default function FilterBar({ filters, onChange, labels, states = [], memb
         <select
           value={filters.statusId || ""}
           onChange={(e) => onChange({ ...filters, statusId: e.target.value ? parseInt(e.target.value) : undefined })}
+          aria-label="Filter by status"
           className={`text-xs px-2.5 py-1.5 rounded-lg border transition-all duration-150 ${filters.statusId ? activeClass : inactiveClass}`}
         >
           <option value="">All statuses</option>
@@ -82,6 +83,7 @@ export default function FilterBar({ filters, onChange, labels, states = [], memb
       <select
         value={filters.priority || ""}
         onChange={(e) => onChange({ ...filters, priority: e.target.value || undefined })}
+        aria-label="Filter by priority"
         className={`text-xs px-2.5 py-1.5 rounded-lg border transition-all duration-150 ${filters.priority ? activeClass : inactiveClass}`}
       >
         <option value="">All priorities</option>
@@ -94,6 +96,7 @@ export default function FilterBar({ filters, onChange, labels, states = [], memb
         <select
           value={filters.assigneeId || ""}
           onChange={(e) => onChange({ ...filters, assigneeId: e.target.value ? parseInt(e.target.value) : undefined })}
+          aria-label="Filter by assignee"
           className={`text-xs px-2.5 py-1.5 rounded-lg border transition-all duration-150 ${filters.assigneeId ? activeClass : inactiveClass}`}
         >
           <option value="">All assignees</option>
@@ -109,6 +112,7 @@ export default function FilterBar({ filters, onChange, labels, states = [], memb
           onChange={(e) =>
             onChange({ ...filters, labelId: e.target.value ? parseInt(e.target.value) : undefined })
           }
+          aria-label="Filter by label"
           className={`text-xs px-2.5 py-1.5 rounded-lg border transition-all duration-150 ${filters.labelId ? activeClass : inactiveClass}`}
         >
           <option value="">All labels</option>
@@ -123,6 +127,7 @@ export default function FilterBar({ filters, onChange, labels, states = [], memb
         value={filters.dueAfter || ""}
         onChange={(e) => onChange({ ...filters, dueAfter: e.target.value || undefined })}
         title="Due after"
+        aria-label="Due after date"
         className={`text-xs px-2 py-1.5 rounded-lg border transition-all duration-150 ${filters.dueAfter ? activeClass : inactiveClass}`}
       />
       <input
@@ -130,6 +135,7 @@ export default function FilterBar({ filters, onChange, labels, states = [], memb
         value={filters.dueBefore || ""}
         onChange={(e) => onChange({ ...filters, dueBefore: e.target.value || undefined })}
         title="Due before"
+        aria-label="Due before date"
         className={`text-xs px-2 py-1.5 rounded-lg border transition-all duration-150 ${filters.dueBefore ? activeClass : inactiveClass}`}
       />
 

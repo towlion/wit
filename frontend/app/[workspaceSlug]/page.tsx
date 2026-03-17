@@ -30,9 +30,9 @@ export default function WorkspacePage() {
     api
       .get<Project[]>(`/workspaces/${wsSlug}/projects`)
       .then(setProjects)
-      .catch(() => {})
+      .catch((e) => console.warn("Failed to load projects:", e.message))
       .finally(() => setLoading(false));
-    api.get<WorkspaceInsights>(`/workspaces/${wsSlug}/insights`).then(setInsights).catch(() => {});
+    api.get<WorkspaceInsights>(`/workspaces/${wsSlug}/insights`).then(setInsights).catch((e) => console.warn("Failed to load workspace insights:", e.message));
   }, [wsSlug]);
 
   if (loading) {
