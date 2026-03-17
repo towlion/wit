@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+import os
+
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -156,6 +158,7 @@ def create_automation(
         name=body.name,
         trigger=body.trigger,
         trigger_state_id=body.trigger_state_id,
+        trigger_config=body.trigger_config,
         action=body.action,
         action_config=body.action_config,
         enabled=body.enabled,
@@ -183,7 +186,7 @@ def update_automation(
     rule = db.query(AutomationRule).filter_by(id=rule_id, project_id=project.id).first()
     if not rule:
         raise HTTPException(status_code=404, detail="Rule not found")
-    for field in ("name", "trigger", "trigger_state_id", "action", "action_config", "enabled"):
+    for field in ("name", "trigger", "trigger_state_id", "trigger_config", "action", "action_config", "enabled"):
         val = getattr(body, field, None)
         if val is not None:
             setattr(rule, field, val)
@@ -210,3 +213,19 @@ def delete_automation(
         raise HTTPException(status_code=404, detail="Rule not found")
     db.delete(rule)
     db.commit()
+
+
+@router.post("/internal/process-due-date-automations")
+def process_due_date_automations_endpoint(
+    x_internal_secret: str | None = Header(None, alias="X-Internal-Secret"),
+    db: Session = Depends(get_db),
+):
+    expected = os.getenv("INTERNAL_SECRET", "")
+    if not expected or x_internal_secret != expected:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    from app.automation import process_due_date_automations
+
+    count = process_due_date_automations(db)
+    db.commit()
+    return {"processed": count}

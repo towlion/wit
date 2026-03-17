@@ -420,8 +420,24 @@ class AutomationRule(Base):
         DateTime(timezone=True), server_default=func.now()
     )
 
+    trigger_config: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
     project: Mapped["Project"] = relationship()
     trigger_state: Mapped["WorkflowState | None"] = relationship()
+
+
+class AutomationLog(Base):
+    __tablename__ = "automation_log"
+    __table_args__ = (
+        UniqueConstraint("rule_id", "work_item_id"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    rule_id: Mapped[int] = mapped_column(ForeignKey("automation_rules.id", ondelete="CASCADE"))
+    work_item_id: Mapped[int] = mapped_column(ForeignKey("work_items.id", ondelete="CASCADE"))
+    fired_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 class ItemWatcher(Base):

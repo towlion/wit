@@ -48,9 +48,14 @@ export default function ProjectSettingsPage() {
   // Automation rules
   const [rules, setRules] = useState<AutomationRule[]>([]);
   const [newRuleName, setNewRuleName] = useState("");
+  const [newRuleTrigger, setNewRuleTrigger] = useState("status_enter");
   const [newRuleStateId, setNewRuleStateId] = useState("");
+  const [newRuleTriggerLabelId, setNewRuleTriggerLabelId] = useState("");
+  const [newRuleDaysBefore, setNewRuleDaysBefore] = useState("1");
   const [newRuleAction, setNewRuleAction] = useState("assign_user");
   const [newRuleConfigValue, setNewRuleConfigValue] = useState("");
+  const [newRuleNotifyMessage, setNewRuleNotifyMessage] = useState("");
+  const [newRuleLinkedTitle, setNewRuleLinkedTitle] = useState("");
 
   // Recurring items
   const [recurrences, setRecurrences] = useState<RecurrenceRule[]>([]);
@@ -160,18 +165,30 @@ export default function ProjectSettingsPage() {
     if (newRuleAction === "assign_user") actionConfig = { user_id: parseInt(newRuleConfigValue) };
     else if (newRuleAction === "add_label") actionConfig = { label_id: parseInt(newRuleConfigValue) };
     else if (newRuleAction === "set_priority") actionConfig = { priority: newRuleConfigValue };
+    else if (newRuleAction === "move_to_state") actionConfig = { state_id: parseInt(newRuleConfigValue) };
+    else if (newRuleAction === "notify_user") actionConfig = { user_id: parseInt(newRuleConfigValue), message: newRuleNotifyMessage };
+    else if (newRuleAction === "create_linked_item") actionConfig = { title: newRuleLinkedTitle, state_id: parseInt(newRuleConfigValue) || null, priority: "medium" };
+
+    let triggerConfig: Record<string, unknown> | null = null;
+    if (newRuleTrigger === "label_added") triggerConfig = { label_id: parseInt(newRuleTriggerLabelId) };
+    else if (newRuleTrigger === "due_date_approaching") triggerConfig = { days_before: parseInt(newRuleDaysBefore) || 1 };
 
     const rule = await api.post<AutomationRule>(`${basePath}/automations`, {
       name: newRuleName,
-      trigger: "status_enter",
-      trigger_state_id: parseInt(newRuleStateId) || null,
+      trigger: newRuleTrigger,
+      trigger_state_id: newRuleTrigger === "status_enter" ? (parseInt(newRuleStateId) || null) : null,
+      trigger_config: triggerConfig,
       action: newRuleAction,
       action_config: actionConfig,
     });
     setRules([...rules, rule]);
     setNewRuleName("");
     setNewRuleStateId("");
+    setNewRuleTriggerLabelId("");
+    setNewRuleDaysBefore("1");
     setNewRuleConfigValue("");
+    setNewRuleNotifyMessage("");
+    setNewRuleLinkedTitle("");
   }
 
   async function deleteRule(id: number) {
@@ -197,10 +214,28 @@ export default function ProjectSettingsPage() {
       return `Add label "${l?.name || config.label_id}"`;
     }
     if (rule.action === "set_priority") return `Set priority to ${config.priority}`;
+    if (rule.action === "move_to_state") {
+      const s = states.find((s) => s.id === config.state_id);
+      return `Move to "${s?.name || config.state_id}"`;
+    }
+    if (rule.action === "notify_user") {
+      const m = members.find((m) => m.user_id === config.user_id);
+      return `Notify ${m?.display_name || `user #${config.user_id}`}`;
+    }
+    if (rule.action === "create_linked_item") return `Create linked item`;
     return rule.action;
   }
 
   function describeTrigger(rule: AutomationRule): string {
+    if (rule.trigger === "label_added") {
+      const tc = rule.trigger_config || {};
+      const l = labels.find((l) => l.id === tc.label_id);
+      return `When label "${l?.name || tc.label_id || "any"}" added`;
+    }
+    if (rule.trigger === "due_date_approaching") {
+      const tc = rule.trigger_config || {};
+      return `${tc.days_before || 1} days before due date`;
+    }
     const s = states.find((s) => s.id === rule.trigger_state_id);
     return `When entering "${s?.name || "?"}"`;
   }
@@ -454,28 +489,67 @@ export default function ProjectSettingsPage() {
               className="input-base flex-1"
             />
             <select
-              value={newRuleStateId}
-              onChange={(e) => setNewRuleStateId(e.target.value)}
-              required
+              value={newRuleTrigger}
+              onChange={(e) => { setNewRuleTrigger(e.target.value); setNewRuleStateId(""); setNewRuleTriggerLabelId(""); }}
               className="input-base w-auto"
             >
-              <option value="">When entering...</option>
-              {states.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
+              <option value="status_enter">When entering state</option>
+              <option value="label_added">When label added</option>
+              <option value="due_date_approaching">Due date approaching</option>
             </select>
+          </div>
+          <div className="flex gap-2">
+            {newRuleTrigger === "status_enter" && (
+              <select
+                value={newRuleStateId}
+                onChange={(e) => setNewRuleStateId(e.target.value)}
+                required
+                className="input-base flex-1"
+              >
+                <option value="">Select state...</option>
+                {states.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            )}
+            {newRuleTrigger === "label_added" && (
+              <select
+                value={newRuleTriggerLabelId}
+                onChange={(e) => setNewRuleTriggerLabelId(e.target.value)}
+                required
+                className="input-base flex-1"
+              >
+                <option value="">Select label...</option>
+                {labels.map((l) => (
+                  <option key={l.id} value={l.id}>{l.name}</option>
+                ))}
+              </select>
+            )}
+            {newRuleTrigger === "due_date_approaching" && (
+              <input
+                type="number"
+                min="1"
+                value={newRuleDaysBefore}
+                onChange={(e) => setNewRuleDaysBefore(e.target.value)}
+                className="input-base flex-1"
+                placeholder="Days before"
+              />
+            )}
           </div>
           <div className="flex gap-2">
             <select
               value={newRuleAction}
-              onChange={(e) => { setNewRuleAction(e.target.value); setNewRuleConfigValue(""); }}
+              onChange={(e) => { setNewRuleAction(e.target.value); setNewRuleConfigValue(""); setNewRuleNotifyMessage(""); setNewRuleLinkedTitle(""); }}
               className="input-base w-auto"
             >
               <option value="assign_user">Assign user</option>
               <option value="add_label">Add label</option>
               <option value="set_priority">Set priority</option>
+              <option value="move_to_state">Move to state</option>
+              <option value="notify_user">Notify user</option>
+              <option value="create_linked_item">Create linked item</option>
             </select>
-            {newRuleAction === "assign_user" && (
+            {(newRuleAction === "assign_user" || newRuleAction === "notify_user") && (
               <select value={newRuleConfigValue} onChange={(e) => setNewRuleConfigValue(e.target.value)} required className="input-base flex-1">
                 <option value="">Select member...</option>
                 {members.map((m) => (
@@ -500,8 +574,35 @@ export default function ProjectSettingsPage() {
                 <option value="urgent">Urgent</option>
               </select>
             )}
+            {newRuleAction === "move_to_state" && (
+              <select value={newRuleConfigValue} onChange={(e) => setNewRuleConfigValue(e.target.value)} required className="input-base flex-1">
+                <option value="">Select state...</option>
+                {states.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            )}
+            {newRuleAction === "create_linked_item" && (
+              <input
+                type="text"
+                value={newRuleLinkedTitle}
+                onChange={(e) => setNewRuleLinkedTitle(e.target.value)}
+                placeholder="Linked item title"
+                required
+                className="input-base flex-1"
+              />
+            )}
             <button type="submit" className="btn-primary">Add</button>
           </div>
+          {newRuleAction === "notify_user" && (
+            <input
+              type="text"
+              value={newRuleNotifyMessage}
+              onChange={(e) => setNewRuleNotifyMessage(e.target.value)}
+              placeholder="Notification message"
+              className="input-base w-full"
+            />
+          )}
         </form>
       </section>
       <div className="h-px bg-[var(--border)] mb-8" />

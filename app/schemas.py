@@ -643,9 +643,10 @@ class ItemTemplateResponse(BaseModel):
 class AutomationRuleCreate(BaseModel):
     """Create an automation rule."""
     name: str = Field(description="Rule name", examples=["Auto-assign on In Progress"])
-    trigger: str = Field(description="Trigger type: on_enter_state")
+    trigger: str = Field(description="Trigger type: status_enter, label_added, due_date_approaching")
     trigger_state_id: int | None = Field(default=None, description="State ID that triggers the rule")
-    action: str = Field(description="Action type: set_assignee, add_label, set_priority")
+    trigger_config: dict | None = Field(default=None, description="Trigger-specific config (e.g. label_id, days_before)")
+    action: str = Field(description="Action type: assign_user, add_label, set_priority, move_to_state, notify_user, create_linked_item")
     action_config: dict = Field(description="Action parameters")
     enabled: bool = Field(default=True, description="Whether the rule is active")
 
@@ -655,6 +656,7 @@ class AutomationRuleUpdate(BaseModel):
     name: str | None = None
     trigger: str | None = None
     trigger_state_id: int | None = None
+    trigger_config: dict | None = None
     action: str | None = None
     action_config: dict | None = None
     enabled: bool | None = None
@@ -667,6 +669,7 @@ class AutomationRuleResponse(BaseModel):
     name: str
     trigger: str
     trigger_state_id: int | None
+    trigger_config: dict | None = None
     action: str
     action_config: dict
     enabled: bool

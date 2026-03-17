@@ -428,6 +428,8 @@ def add_item_label(
         db, item.id, user.id, "label_added",
         new_value=label.name if label else str(label_id),
     )
+    from app.automation import run_label_automations
+    run_label_automations(db, item, label_id, user.id)
     db.commit()
     _broadcast(project.id, "item_updated", item.item_number)
     return {"ok": True}

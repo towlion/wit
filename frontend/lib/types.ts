@@ -259,6 +259,7 @@ export interface AutomationRule {
   name: string;
   trigger: string;
   trigger_state_id: number | null;
+  trigger_config: Record<string, unknown> | null;
   action: string;
   action_config: Record<string, unknown>;
   enabled: boolean;
