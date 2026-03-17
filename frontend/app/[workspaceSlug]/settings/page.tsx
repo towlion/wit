@@ -3,7 +3,8 @@
 import { useEffect, useState, FormEvent, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { api } from "@/lib/api";
-import type { Workspace, Member, ActivityEvent, WorkspaceStats } from "@/lib/types";
+import type { Workspace, Member, ActivityEvent, WorkspaceStats, WorkspaceInsights } from "@/lib/types";
+import LineChart from "@/components/LineChart";
 
 interface Invite {
   id: number;
@@ -49,6 +50,7 @@ export default function WorkspaceSettingsPage() {
 
   // Stats
   const [stats, setStats] = useState<WorkspaceStats | null>(null);
+  const [wsInsights, setWsInsights] = useState<WorkspaceInsights | null>(null);
 
   useEffect(() => {
     api.get<Workspace>(`/workspaces/${wsSlug}`).then(setWorkspace);
@@ -69,6 +71,7 @@ export default function WorkspaceSettingsPage() {
   useEffect(() => {
     if (activeTab === "stats") {
       api.get<WorkspaceStats>(`/workspaces/${wsSlug}/stats`).then(setStats).catch(() => {});
+      api.get<WorkspaceInsights>(`/workspaces/${wsSlug}/insights`).then(setWsInsights).catch(() => {});
     }
   }, [activeTab, wsSlug]);
 
@@ -416,6 +419,90 @@ export default function WorkspaceSettingsPage() {
                 </div>
               ))}
             </div>
+          )}
+
+          {/* Workspace Insights */}
+          {wsInsights && (
+            <>
+              <div className="h-px bg-[var(--border)] my-6" />
+
+              {/* Project completion */}
+              <div className="mb-6">
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-3">
+                  Project Completion
+                </h2>
+                {wsInsights.project_summaries.length === 0 ? (
+                  <div className="text-center py-6 text-sm text-[var(--text-muted)]">No projects</div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-[11px] text-[var(--text-muted)] uppercase tracking-wider">
+                          <th className="text-left font-medium pb-2">Project</th>
+                          <th className="text-right font-medium pb-2">Total</th>
+                          <th className="text-right font-medium pb-2">Done</th>
+                          <th className="text-right font-medium pb-2">Rate</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {wsInsights.project_summaries.map((p) => (
+                          <tr key={p.project_id} className="border-t border-[var(--border-subtle)]">
+                            <td className="py-2 font-medium">{p.project_name}</td>
+                            <td className="text-right py-2 tabular-nums">{p.total_items}</td>
+                            <td className="text-right py-2 tabular-nums">{p.completed_items}</td>
+                            <td className="text-right py-2 tabular-nums">
+                              <span className={p.completion_rate >= 50 ? "text-emerald-400" : "text-[var(--text-muted)]"}>
+                                {p.completion_rate}%
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* Most active members */}
+              <div className="mb-6">
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-3">
+                  Most Active Members (30d)
+                </h2>
+                {wsInsights.most_active_members.length === 0 ? (
+                  <div className="text-center py-6 text-sm text-[var(--text-muted)]">No activity</div>
+                ) : (
+                  <div className="space-y-2">
+                    {wsInsights.most_active_members.map((m) => (
+                      <div key={m.user_id} className="flex items-center justify-between py-2 border-b border-[var(--border-subtle)] last:border-0">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-500/80 to-violet-500/80 flex items-center justify-center text-[9px] text-white font-semibold shrink-0">
+                            {m.display_name[0].toUpperCase()}
+                          </div>
+                          <span className="text-sm">{m.display_name}</span>
+                        </div>
+                        <span className="text-xs text-[var(--text-muted)] tabular-nums">
+                          {m.events_count} events
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Activity trend */}
+              <div>
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-3">
+                  Activity Trend (30d)
+                </h2>
+                <LineChart
+                  points={wsInsights.activity_trend.map((t) => ({
+                    label: t.date.slice(5),
+                    value: t.count,
+                  }))}
+                  color="#6366f1"
+                />
+              </div>
+            </>
           )}
         </section>
       )}

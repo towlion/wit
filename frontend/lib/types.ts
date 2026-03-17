@@ -164,3 +164,78 @@ export interface WorkspaceStats {
 export interface BulkOperationResult {
   affected: number;
 }
+
+// --- Insights ---
+export interface StatusDistributionItem {
+  state_id: number;
+  state_name: string;
+  category: string;
+  color: string;
+  count: number;
+}
+
+export interface PriorityDistributionItem {
+  priority: string;
+  count: number;
+}
+
+export interface BurndownPoint {
+  date: string;
+  remaining: number;
+}
+
+export interface CycleTimeStats {
+  avg_days: number | null;
+  median_days: number | null;
+  count: number;
+}
+
+export interface MemberBreakdownItem {
+  user_id: number;
+  display_name: string;
+  items_created: number;
+  items_completed: number;
+  items_assigned: number;
+}
+
+export interface RecentlyCompletedItem {
+  item_number: number;
+  title: string;
+  completed_at: string;
+  completed_by: string | null;
+}
+
+export interface ProjectInsights {
+  status_distribution: StatusDistributionItem[];
+  priority_distribution: PriorityDistributionItem[];
+  burndown: BurndownPoint[];
+  cycle_time: CycleTimeStats;
+  member_breakdown: MemberBreakdownItem[];
+  recently_completed: RecentlyCompletedItem[];
+}
+
+export interface ProjectSummary {
+  project_id: number;
+  project_name: string;
+  project_slug: string;
+  total_items: number;
+  completed_items: number;
+  completion_rate: number;
+}
+
+export interface ActiveMemberSummary {
+  user_id: number;
+  display_name: string;
+  events_count: number;
+}
+
+export interface ActivityTrendPoint {
+  date: string;
+  count: number;
+}
+
+export interface WorkspaceInsights {
+  project_summaries: ProjectSummary[];
+  most_active_members: ActiveMemberSummary[];
+  activity_trend: ActivityTrendPoint[];
+}

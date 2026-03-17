@@ -464,3 +464,78 @@ class BulkLabelsRequest(BaseModel):
 
 class BulkOperationResponse(BaseModel):
     affected: int
+
+
+# --- Insights ---
+class StatusDistributionItem(BaseModel):
+    state_id: int
+    state_name: str
+    category: str
+    color: str
+    count: int
+
+
+class PriorityDistributionItem(BaseModel):
+    priority: str
+    count: int
+
+
+class BurndownPoint(BaseModel):
+    date: date
+    remaining: int
+
+
+class CycleTimeStats(BaseModel):
+    avg_days: float | None
+    median_days: float | None
+    count: int
+
+
+class MemberBreakdown(BaseModel):
+    user_id: int
+    display_name: str
+    items_created: int
+    items_completed: int
+    items_assigned: int
+
+
+class RecentlyCompletedItem(BaseModel):
+    item_number: int
+    title: str
+    completed_at: datetime
+    completed_by: str | None
+
+
+class ProjectInsightsResponse(BaseModel):
+    status_distribution: list[StatusDistributionItem]
+    priority_distribution: list[PriorityDistributionItem]
+    burndown: list[BurndownPoint]
+    cycle_time: CycleTimeStats
+    member_breakdown: list[MemberBreakdown]
+    recently_completed: list[RecentlyCompletedItem]
+
+
+class ProjectSummary(BaseModel):
+    project_id: int
+    project_name: str
+    project_slug: str
+    total_items: int
+    completed_items: int
+    completion_rate: float
+
+
+class ActiveMemberSummary(BaseModel):
+    user_id: int
+    display_name: str
+    events_count: int
+
+
+class ActivityTrendPoint(BaseModel):
+    date: date
+    count: int
+
+
+class WorkspaceInsightsResponse(BaseModel):
+    project_summaries: list[ProjectSummary]
+    most_active_members: list[ActiveMemberSummary]
+    activity_trend: list[ActivityTrendPoint]
