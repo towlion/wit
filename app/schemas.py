@@ -482,6 +482,24 @@ class BulkOperationResponse(BaseModel):
     affected: int
 
 
+# --- Cross-Project ---
+class CrossProjectItemResponse(BaseModel):
+    id: int
+    project_id: int
+    project_name: str
+    project_slug: str
+    item_number: int
+    title: str
+    description: str | None
+    status_name: str
+    status_category: str
+    status_color: str
+    priority: str
+    due_date: date | None = None
+    created_at: datetime
+    assignee_names: list[str] = []
+
+
 # --- Item Templates ---
 class ItemTemplateCreate(BaseModel):
     name: str

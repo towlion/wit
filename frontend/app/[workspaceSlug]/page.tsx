@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { api } from "@/lib/api";
-import type { Project } from "@/lib/types";
+import type { Project, WorkspaceInsights } from "@/lib/types";
 
 const TEMPLATE_ICONS: Record<string, string> = {
   software: "S",
@@ -23,6 +23,7 @@ export default function WorkspacePage() {
   const router = useRouter();
   const wsSlug = params.workspaceSlug as string;
   const [projects, setProjects] = useState<Project[]>([]);
+  const [insights, setInsights] = useState<WorkspaceInsights | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -31,6 +32,7 @@ export default function WorkspacePage() {
       .then(setProjects)
       .catch(() => {})
       .finally(() => setLoading(false));
+    api.get<WorkspaceInsights>(`/workspaces/${wsSlug}/insights`).then(setInsights).catch(() => {});
   }, [wsSlug]);
 
   if (loading) {
@@ -50,6 +52,12 @@ export default function WorkspacePage() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-semibold tracking-tight">Projects</h1>
         <div className="flex gap-2">
+          <Link href={`/${wsSlug}/board`} className="btn-secondary text-xs py-2 flex items-center gap-1">
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+            </svg>
+            All Items
+          </Link>
           <Link href={`/${wsSlug}/settings`} className="btn-secondary text-xs py-2">
             Settings
           </Link>
@@ -98,9 +106,37 @@ export default function WorkspacePage() {
                       {p.description}
                     </p>
                   )}
-                  <p className="text-xs text-[var(--text-muted)] mt-2.5">
-                    {p.item_counter} item{p.item_counter !== 1 ? "s" : ""}
-                  </p>
+                  {(() => {
+                    const summary = insights?.project_summaries.find((s) => s.project_id === p.id);
+                    if (summary && summary.total_items > 0) {
+                      return (
+                        <div className="mt-2.5">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[10px] text-[var(--text-muted)]">
+                              {summary.completed_items}/{summary.total_items} done
+                            </span>
+                            <span className={`text-[10px] font-medium tabular-nums ${
+                              summary.completion_rate >= 75 ? "text-emerald-400" :
+                              summary.completion_rate >= 50 ? "text-amber-400" : "text-[var(--text-muted)]"
+                            }`}>
+                              {summary.completion_rate}%
+                            </span>
+                          </div>
+                          <div className="h-1.5 rounded-full bg-[var(--bg-tertiary)] overflow-hidden">
+                            <div
+                              className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-emerald-500 transition-all duration-500"
+                              style={{ width: `${summary.completion_rate}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    }
+                    return (
+                      <p className="text-xs text-[var(--text-muted)] mt-2.5">
+                        {p.item_counter} item{p.item_counter !== 1 ? "s" : ""}
+                      </p>
+                    );
+                  })()}
                 </div>
               </div>
             </Link>

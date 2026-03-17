@@ -12,6 +12,7 @@ from app.models import (
     Label,
     Project,
     User,
+    WorkflowState,
     WorkItem,
     WorkItemAssignee,
     WorkItemLabel,
@@ -25,6 +26,7 @@ from app.schemas import (
     BulkLabelsRequest,
     BulkOperationResponse,
     BulkReassignRequest,
+    CrossProjectItemResponse,
     MemberResponse,
     UpdateMemberRequest,
     UserResponse,
@@ -472,3 +474,54 @@ def bulk_labels(
             affected += 1
     db.commit()
     return BulkOperationResponse(affected=affected)
+
+
+@router.get("/{slug}/items", response_model=list[CrossProjectItemResponse])
+def cross_project_items(
+    slug: str,
+    category: str = "",
+    priority: str = "",
+    limit: int = 200,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    ws = db.query(Workspace).filter_by(slug=slug).first()
+    if not ws:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    get_workspace_member(ws.id, user.id, db)
+
+    q = (
+        db.query(WorkItem, WorkflowState, Project)
+        .join(WorkflowState, WorkItem.status_id == WorkflowState.id)
+        .join(Project, WorkItem.project_id == Project.id)
+        .filter(Project.workspace_id == ws.id, WorkItem.archived == False)
+    )
+    if category:
+        q = q.filter(WorkflowState.category == category)
+    if priority:
+        q = q.filter(WorkItem.priority == priority)
+
+    rows = q.order_by(WorkItem.created_at.desc()).limit(limit).all()
+
+    result = []
+    for item, state, project in rows:
+        assignee_names = [a.display_name for a in item.assignees]
+        result.append(
+            CrossProjectItemResponse(
+                id=item.id,
+                project_id=project.id,
+                project_name=project.name,
+                project_slug=project.slug,
+                item_number=item.item_number,
+                title=item.title,
+                description=item.description,
+                status_name=state.name,
+                status_category=state.category,
+                status_color=state.color,
+                priority=item.priority,
+                due_date=item.due_date,
+                created_at=item.created_at,
+                assignee_names=assignee_names,
+            )
+        )
+    return result

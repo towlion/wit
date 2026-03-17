@@ -180,6 +180,24 @@ export interface BulkOperationResult {
   affected: number;
 }
 
+// --- Cross-Project ---
+export interface CrossProjectItem {
+  id: number;
+  project_id: number;
+  project_name: string;
+  project_slug: string;
+  item_number: number;
+  title: string;
+  description: string | null;
+  status_name: string;
+  status_category: string;
+  status_color: string;
+  priority: string;
+  due_date: string | null;
+  created_at: string;
+  assignee_names: string[];
+}
+
 // --- Templates & Automation ---
 export interface ItemTemplate {
   id: number;
