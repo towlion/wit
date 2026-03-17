@@ -3,10 +3,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
+import { useToast } from "@/lib/toast";
 import type { User, ApiToken, ApiTokenCreated } from "@/lib/types";
 
 export default function ProfilePage() {
   const { user, refreshUser } = useAuth();
+  const { toast } = useToast();
 
   const [displayName, setDisplayName] = useState(user?.display_name ?? "");
   const [profileMsg, setProfileMsg] = useState("");
@@ -32,7 +34,7 @@ export default function ProfilePage() {
     try {
       const data = await api.get<ApiToken[]>("/profile/tokens");
       setTokens(data);
-    } catch {}
+    } catch { toast.error("Failed to load API tokens"); }
   }, []);
 
   useEffect(() => {
@@ -110,7 +112,7 @@ export default function ProfilePage() {
     try {
       await api.delete(`/profile/tokens/${tokenId}`);
       loadTokens();
-    } catch {}
+    } catch { toast.error("Failed to revoke token"); }
   }
 
   function handleCopyToken() {
@@ -232,9 +234,11 @@ export default function ProfilePage() {
             </div>
             <button
               onClick={async () => {
-                const newVal = !user.email_notifications;
-                await api.patch("/profile", { email_notifications: newVal });
-                await refreshUser();
+                try {
+                  const newVal = !user.email_notifications;
+                  await api.patch("/profile", { email_notifications: newVal });
+                  await refreshUser();
+                } catch { toast.error("Failed to update email notifications"); }
               }}
               className={`relative w-10 h-5 rounded-full transition-colors ${
                 user.email_notifications ? "bg-[var(--accent)]" : "bg-[var(--bg-tertiary)] border border-[var(--border)]"
@@ -251,8 +255,10 @@ export default function ProfilePage() {
               <select
                 value={user.email_digest_mode || "immediate"}
                 onChange={async (e) => {
-                  await api.patch("/profile", { email_digest_mode: e.target.value });
-                  await refreshUser();
+                  try {
+                    await api.patch("/profile", { email_digest_mode: e.target.value });
+                    await refreshUser();
+                  } catch { toast.error("Failed to update delivery mode"); }
                 }}
                 className="px-3 py-2 rounded-lg bg-[var(--bg-secondary)] border border-[var(--border)] text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/50 focus:border-[var(--accent)]"
               >

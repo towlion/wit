@@ -56,6 +56,7 @@ export default function MentionTextarea({
               setSuggestions(users);
               setSelectedIdx(0);
             })
+            /* Keystroke-driven — empty suggestions is sufficient feedback */
             .catch((e) => { console.warn("Failed to search mentions:", e.message); setSuggestions([]); });
         }, 200);
       } else {

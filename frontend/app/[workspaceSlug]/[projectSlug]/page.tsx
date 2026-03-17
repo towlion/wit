@@ -96,7 +96,7 @@ export default function ProjectBoardPage() {
       setItems(i);
       setLabels(l);
       setLoading(false);
-    });
+    }).catch(() => { toast.error("Failed to load board data"); setLoading(false); });
   }, [basePath]);
 
   useEffect(() => {
@@ -105,14 +105,14 @@ export default function ProjectBoardPage() {
       setProjectId(p.id);
       if (p.board_settings) setBoardSettings(p.board_settings);
       if (p.user_role) setUserRole(p.user_role);
-    }).catch((e) => console.warn("Failed to load project:", e.message));
-    api.get<ItemTemplate[]>(`${basePath}/templates`).then(setTemplates).catch((e) => console.warn("Failed to load templates:", e.message));
-    api.get<Sprint[]>(`${basePath}/sprints`).then(setSprints).catch((e) => console.warn("Failed to load sprints:", e.message));
+    }).catch(() => toast.error("Failed to load project settings"));
+    api.get<ItemTemplate[]>(`${basePath}/templates`).then(setTemplates).catch((e) => console.warn("Failed to load templates:", e.message)); /* Optional features — board is fully usable without them */
+    api.get<Sprint[]>(`${basePath}/sprints`).then(setSprints).catch((e) => console.warn("Failed to load sprints:", e.message)); /* Optional features — board is fully usable without them */
   }, [loadData, basePath]);
 
   useEffect(() => {
     if (user) {
-      api.get<Workspace>(`/workspaces/${wsSlug}`).then(setWorkspace).catch((e) => console.warn("Failed to load workspace:", e.message));
+      api.get<Workspace>(`/workspaces/${wsSlug}`).then(setWorkspace).catch((e) => console.warn("Failed to load workspace:", e.message)); /* Non-critical for board — used for member list in filters */
     }
   }, [wsSlug, user]);
 

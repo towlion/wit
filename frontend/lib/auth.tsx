@@ -43,6 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const u = await api.get<User>("/auth/me");
       setUser(u);
     } catch {
+      /* Token expired or invalid — clear silently, user sees login page */
       localStorage.removeItem("token");
     }
     setLoading(false);

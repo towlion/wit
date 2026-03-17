@@ -37,7 +37,9 @@ export function useBoardSocket(
         } else {
           onEventRef.current(data);
         }
-      } catch {}
+      } catch {
+        /* Malformed WebSocket message — silent to avoid toast spam on reconnection */
+      }
     };
 
     ws.onclose = () => {

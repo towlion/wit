@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { api } from "@/lib/api";
+import { useToast } from "@/lib/toast";
 import type { Project, WorkspaceInsights } from "@/lib/types";
 
 const TEMPLATE_ICONS: Record<string, string> = {
@@ -25,13 +26,15 @@ export default function WorkspacePage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [insights, setInsights] = useState<WorkspaceInsights | null>(null);
   const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
 
   useEffect(() => {
     api
       .get<Project[]>(`/workspaces/${wsSlug}/projects`)
       .then(setProjects)
-      .catch((e) => console.warn("Failed to load projects:", e.message))
+      .catch(() => toast.error("Failed to load projects"))
       .finally(() => setLoading(false));
+    /* Supplementary — project cards render without it */
     api.get<WorkspaceInsights>(`/workspaces/${wsSlug}/insights`).then(setInsights).catch((e) => console.warn("Failed to load workspace insights:", e.message));
   }, [wsSlug]);
 

@@ -34,6 +34,7 @@ export default function FilterBar({ filters, onChange, labels, states = [], memb
 
   useEffect(() => {
     if (basePath) {
+      /* Saved views are optional — filter bar works without them */
       api.get<SavedView[]>(`${basePath}/views`).then(setSavedViews).catch((e) => console.warn("Failed to load saved views:", e.message));
     }
   }, [basePath]);

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { api } from "@/lib/api";
+import { useToast } from "@/lib/toast";
 import type { Sprint, WorkItem } from "@/lib/types";
 
 interface Props {
@@ -27,9 +28,10 @@ const STATUS_BADGE: Record<string, string> = {
 
 export default function SprintBacklog({ items, basePath, onItemUpdate, onCardClick, canEdit }: Props) {
   const [sprints, setSprints] = useState<Sprint[]>([]);
+  const { toast } = useToast();
 
   useEffect(() => {
-    api.get<Sprint[]>(`${basePath}/sprints`).then(setSprints).catch(() => {});
+    api.get<Sprint[]>(`${basePath}/sprints`).then(setSprints).catch(() => toast.error("Failed to load sprints"));
   }, [basePath]);
 
   const activeSprint = useMemo(() => sprints.find((s) => s.status === "active"), [sprints]);

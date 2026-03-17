@@ -6,6 +6,7 @@ import { api } from "@/lib/api";
 import type { Workspace, Member, ActivityEvent, WorkspaceStats, WorkspaceInsights, WorkspaceMemberWorkload } from "@/lib/types";
 import LineChart from "@/components/LineChart";
 import StackedBar from "@/components/StackedBar";
+import { useToast } from "@/lib/toast";
 
 interface Invite {
   id: number;
@@ -53,17 +54,18 @@ export default function WorkspaceSettingsPage() {
   const [stats, setStats] = useState<WorkspaceStats | null>(null);
   const [wsInsights, setWsInsights] = useState<WorkspaceInsights | null>(null);
   const [wsWorkload, setWsWorkload] = useState<WorkspaceMemberWorkload[]>([]);
+  const { toast } = useToast();
 
   useEffect(() => {
-    api.get<Workspace>(`/workspaces/${wsSlug}`).then(setWorkspace);
-    api.get<Invite[]>(`/workspaces/${wsSlug}/invites`).then(setInvites).catch((e) => console.warn("Failed to load invites:", e.message));
-    api.get<Webhook[]>(`/workspaces/${wsSlug}/webhooks`).then(setWebhooks).catch((e) => console.warn("Failed to load webhooks:", e.message));
+    api.get<Workspace>(`/workspaces/${wsSlug}`).then(setWorkspace).catch(() => toast.error("Failed to load workspace settings"));
+    api.get<Invite[]>(`/workspaces/${wsSlug}/invites`).then(setInvites).catch(() => toast.error("Failed to load invites"));
+    api.get<Webhook[]>(`/workspaces/${wsSlug}/webhooks`).then(setWebhooks).catch(() => toast.error("Failed to load webhooks"));
   }, [wsSlug]);
 
   const loadAudit = useCallback(() => {
     const params = new URLSearchParams({ limit: "50", offset: String(auditOffset) });
     if (auditEventType) params.set("event_type", auditEventType);
-    api.get<ActivityEvent[]>(`/workspaces/${wsSlug}/audit?${params}`).then(setAuditEvents).catch((e) => console.warn("Failed to load audit events:", e.message));
+    api.get<ActivityEvent[]>(`/workspaces/${wsSlug}/audit?${params}`).then(setAuditEvents).catch(() => toast.error("Failed to load audit log"));
   }, [wsSlug, auditEventType, auditOffset]);
 
   useEffect(() => {
@@ -72,9 +74,9 @@ export default function WorkspaceSettingsPage() {
 
   useEffect(() => {
     if (activeTab === "stats") {
-      api.get<WorkspaceStats>(`/workspaces/${wsSlug}/stats`).then(setStats).catch((e) => console.warn("Failed to load stats:", e.message));
-      api.get<WorkspaceInsights>(`/workspaces/${wsSlug}/insights`).then(setWsInsights).catch((e) => console.warn("Failed to load insights:", e.message));
-      api.get<WorkspaceMemberWorkload[]>(`/workspaces/${wsSlug}/workload`).then(setWsWorkload).catch((e) => console.warn("Failed to load workload:", e.message));
+      api.get<WorkspaceStats>(`/workspaces/${wsSlug}/stats`).then(setStats).catch(() => toast.error("Failed to load stats"));
+      api.get<WorkspaceInsights>(`/workspaces/${wsSlug}/insights`).then(setWsInsights).catch(() => toast.error("Failed to load insights"));
+      api.get<WorkspaceMemberWorkload[]>(`/workspaces/${wsSlug}/workload`).then(setWsWorkload).catch(() => toast.error("Failed to load workload"));
     }
   }, [activeTab, wsSlug]);
 

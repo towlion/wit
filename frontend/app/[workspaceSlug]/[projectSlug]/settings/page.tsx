@@ -6,6 +6,7 @@ import { api } from "@/lib/api";
 import type { WorkflowState, Label, ItemTemplate, AutomationRule, Workspace, Member, WorkItem, RecurrenceRule, Sprint, ProjectMember } from "@/lib/types";
 import ImportModal from "@/components/ImportModal";
 import { useAuth } from "@/lib/auth";
+import { useToast } from "@/lib/toast";
 
 export default function ProjectSettingsPage() {
   const params = useParams();
@@ -13,6 +14,7 @@ export default function ProjectSettingsPage() {
   const projectSlug = params.projectSlug as string;
   const basePath = `/workspaces/${wsSlug}/projects/${projectSlug}`;
   const { user } = useAuth();
+  const { toast } = useToast();
 
   const [states, setStates] = useState<WorkflowState[]>([]);
   const [labels, setLabels] = useState<Label[]>([]);
@@ -81,14 +83,14 @@ export default function ProjectSettingsPage() {
   useEffect(() => {
     api.get<WorkflowState[]>(`${basePath}/states`).then(setStates);
     api.get<Label[]>(`${basePath}/labels`).then(setLabels);
-    api.get<FieldDef[]>(`${basePath}/fields`).then(setFields).catch((e) => console.warn("Failed to load fields:", e.message));
-    api.get<ItemTemplate[]>(`${basePath}/templates`).then(setTemplates).catch((e) => console.warn("Failed to load templates:", e.message));
-    api.get<AutomationRule[]>(`${basePath}/automations`).then(setRules).catch((e) => console.warn("Failed to load automations:", e.message));
-    api.get<{ members: Member[] }>(`/workspaces/${wsSlug}`).then((ws) => setMembers(ws.members)).catch((e) => console.warn("Failed to load members:", e.message));
-    api.get<RecurrenceRule[]>(`${basePath}/recurrences`).then(setRecurrences).catch((e) => console.warn("Failed to load recurrences:", e.message));
-    api.get<WorkItem[]>(`${basePath}/items`).then(setItems).catch((e) => console.warn("Failed to load items:", e.message));
-    api.get<Sprint[]>(`${basePath}/sprints`).then(setSprints).catch((e) => console.warn("Failed to load sprints:", e.message));
-    api.get<ProjectMember[]>(`${basePath}/project-members`).then(setProjectMembers).catch((e) => console.warn("Failed to load project members:", e.message));
+    api.get<FieldDef[]>(`${basePath}/fields`).then(setFields).catch(() => toast.error("Failed to load custom fields"));
+    api.get<ItemTemplate[]>(`${basePath}/templates`).then(setTemplates).catch(() => toast.error("Failed to load templates"));
+    api.get<AutomationRule[]>(`${basePath}/automations`).then(setRules).catch(() => toast.error("Failed to load automations"));
+    api.get<{ members: Member[] }>(`/workspaces/${wsSlug}`).then((ws) => setMembers(ws.members)).catch(() => toast.error("Failed to load members"));
+    api.get<RecurrenceRule[]>(`${basePath}/recurrences`).then(setRecurrences).catch(() => toast.error("Failed to load recurrences"));
+    api.get<WorkItem[]>(`${basePath}/items`).then(setItems).catch(() => toast.error("Failed to load items"));
+    api.get<Sprint[]>(`${basePath}/sprints`).then(setSprints).catch(() => toast.error("Failed to load sprints"));
+    api.get<ProjectMember[]>(`${basePath}/project-members`).then(setProjectMembers).catch(() => toast.error("Failed to load project members"));
   }, [basePath, wsSlug]);
 
   async function addField(e: FormEvent) {

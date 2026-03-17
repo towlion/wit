@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { api } from "@/lib/api";
+import { useToast } from "@/lib/toast";
 import type { Notification } from "@/lib/types";
 
 function timeAgo(dateStr: string): string {
@@ -19,10 +20,12 @@ export default function NotificationBell() {
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const ref = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
 
   // Poll unread count
   useEffect(() => {
     function poll() {
+      /* Polling every 30s — fail silently to avoid toast spam */
       api.get<{ count: number }>("/notifications/unread-count").then((r) => setCount(r.count)).catch((e) => console.warn("Failed to poll notifications:", e.message));
     }
     poll();
@@ -33,7 +36,7 @@ export default function NotificationBell() {
   // Load notifications when opened
   useEffect(() => {
     if (open) {
-      api.get<Notification[]>("/notifications?limit=20").then(setNotifications).catch((e) => console.warn("Failed to load notifications:", e.message));
+      api.get<Notification[]>("/notifications?limit=20").then(setNotifications).catch(() => toast.error("Failed to load notifications"));
     }
   }, [open]);
 
@@ -47,15 +50,19 @@ export default function NotificationBell() {
   }, []);
 
   async function markAllRead() {
-    await api.post("/notifications/read-all");
-    setCount(0);
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    try {
+      await api.post("/notifications/read-all");
+      setCount(0);
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    } catch { toast.error("Failed to mark notifications as read"); }
   }
 
   async function markRead(id: number) {
-    await api.patch(`/notifications/${id}/read`);
-    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
-    setCount((c) => Math.max(0, c - 1));
+    try {
+      await api.patch(`/notifications/${id}/read`);
+      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+      setCount((c) => Math.max(0, c - 1));
+    } catch { toast.error("Failed to mark notification as read"); }
   }
 
   return (
