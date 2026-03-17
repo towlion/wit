@@ -21,9 +21,12 @@ interface CardProps {
   item: WorkItem;
   overlay?: boolean;
   onClick?: () => void;
+  selectable?: boolean;
+  selected?: boolean;
+  onToggleSelect?: () => void;
 }
 
-export default function Card({ item, overlay, onClick }: CardProps) {
+export default function Card({ item, overlay, onClick, selectable, selected, onToggleSelect }: CardProps) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: item.id,
   });
@@ -35,7 +38,9 @@ export default function Card({ item, overlay, onClick }: CardProps) {
       ref={overlay ? undefined : setNodeRef}
       {...(overlay ? {} : { ...attributes, ...listeners })}
       onClick={onClick}
-      className={`group relative p-3 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border)] cursor-pointer select-none transition-all duration-200 ${
+      className={`group relative p-3 rounded-xl bg-[var(--bg-secondary)] border cursor-pointer select-none transition-all duration-200 ${
+        selected ? "border-[var(--accent)] ring-1 ring-[var(--accent)]/30" : "border-[var(--border)]"
+      } ${
         isDragging ? "opacity-30" : ""
       } ${
         overlay
@@ -43,6 +48,24 @@ export default function Card({ item, overlay, onClick }: CardProps) {
           : "hover:border-[var(--border-hover)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.2)] hover:-translate-y-0.5"
       }`}
     >
+      {/* Selection checkbox */}
+      {selectable && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onToggleSelect?.(); }}
+          className={`absolute top-2 right-2 w-4 h-4 rounded border transition-all z-10 flex items-center justify-center ${
+            selected
+              ? "bg-[var(--accent)] border-[var(--accent)] text-white"
+              : "border-[var(--border)] bg-[var(--bg-tertiary)] opacity-0 group-hover:opacity-100"
+          }`}
+        >
+          {selected && (
+            <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          )}
+        </button>
+      )}
+
       {/* Priority stripe on left edge */}
       <div
         className="absolute left-0 top-3 bottom-3 w-[3px] rounded-full"

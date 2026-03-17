@@ -3,14 +3,16 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams } from "next/navigation";
 import { api } from "@/lib/api";
-import type { WorkflowState, WorkItem, Label } from "@/lib/types";
+import type { WorkflowState, WorkItem, Label, Workspace, BulkOperationResult } from "@/lib/types";
 import Board from "@/components/Board";
 import CardDetail from "@/components/CardDetail";
 import FilterBar, { Filters } from "@/components/FilterBar";
 import CalendarView from "@/components/CalendarView";
 import SearchModal from "@/components/SearchModal";
 import ShortcutHelp from "@/components/ShortcutHelp";
+import BulkToolbar from "@/components/BulkToolbar";
 import { useKeyboardShortcuts, type Shortcut } from "@/lib/shortcuts";
+import { useAuth } from "@/lib/auth";
 import Link from "next/link";
 
 type ViewMode = "board" | "calendar";
@@ -20,6 +22,7 @@ export default function ProjectBoardPage() {
   const wsSlug = params.workspaceSlug as string;
   const projectSlug = params.projectSlug as string;
   const basePath = `/workspaces/${wsSlug}/projects/${projectSlug}`;
+  const { user } = useAuth();
 
   const [states, setStates] = useState<WorkflowState[]>([]);
   const [items, setItems] = useState<WorkItem[]>([]);
@@ -34,12 +37,18 @@ export default function ProjectBoardPage() {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   });
   const [selectedItem, setSelectedItem] = useState<WorkItem | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [workspace, setWorkspace] = useState<Workspace | null>(null);
+
+  // Determine if user is admin/owner in this workspace
+  const userRole = workspace?.members.find((m) => m.user_id === user?.id)?.role;
+  const isAdmin = userRole === "admin" || userRole === "owner";
 
   const shortcuts: Shortcut[] = useMemo(
     () => [
       { key: "?", description: "Show shortcuts", action: () => setShowShortcuts((v) => !v) },
       { key: "k", meta: true, description: "Search", action: () => setShowSearch((v) => !v) },
-      { key: "Escape", description: "Close", action: () => { setShowShortcuts(false); setShowSearch(false); } },
+      { key: "Escape", description: "Close", action: () => { setShowShortcuts(false); setShowSearch(false); setSelectedIds(new Set()); } },
     ],
     []
   );
@@ -61,6 +70,12 @@ export default function ProjectBoardPage() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    if (user) {
+      api.get<Workspace>(`/workspaces/${wsSlug}`).then(setWorkspace).catch(() => {});
+    }
+  }, [wsSlug, user]);
 
   const filteredItems = items.filter((item) => {
     if (filters.priority && item.priority !== filters.priority) return false;
@@ -85,6 +100,42 @@ export default function ProjectBoardPage() {
   async function onItemUpdate(itemNumber: number, data: Partial<WorkItem>) {
     const updated = await api.patch<WorkItem>(`${basePath}/items/${itemNumber}`, data);
     setItems((prev) => prev.map((i) => (i.item_number === itemNumber ? updated : i)));
+  }
+
+  function toggleSelect(itemId: number) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
+      return next;
+    });
+  }
+
+  async function handleBulkArchive() {
+    await api.post<BulkOperationResult>(`/workspaces/${wsSlug}/bulk/archive`, {
+      item_ids: Array.from(selectedIds),
+    });
+    setSelectedIds(new Set());
+    loadData();
+  }
+
+  async function handleBulkReassign(assigneeId: number) {
+    await api.post<BulkOperationResult>(`/workspaces/${wsSlug}/bulk/reassign`, {
+      item_ids: Array.from(selectedIds),
+      assignee_id: assigneeId,
+    });
+    setSelectedIds(new Set());
+    loadData();
+  }
+
+  async function handleBulkLabel(labelId: number, action: "add" | "remove") {
+    await api.post<BulkOperationResult>(`/workspaces/${wsSlug}/bulk/labels`, {
+      item_ids: Array.from(selectedIds),
+      label_id: labelId,
+      action,
+    });
+    setSelectedIds(new Set());
+    loadData();
   }
 
   if (loading) {
@@ -159,6 +210,9 @@ export default function ProjectBoardPage() {
           onItemUpdate={onItemUpdate}
           basePath={basePath}
           onRefresh={loadData}
+          selectable={isAdmin}
+          selectedIds={selectedIds}
+          onToggleSelect={toggleSelect}
         />
       ) : (
         <CalendarView
@@ -183,6 +237,17 @@ export default function ProjectBoardPage() {
       {showShortcuts && <ShortcutHelp onClose={() => setShowShortcuts(false)} />}
       {showSearch && (
         <SearchModal basePath={basePath} onClose={() => setShowSearch(false)} />
+      )}
+      {isAdmin && selectedIds.size > 0 && workspace && (
+        <BulkToolbar
+          selectedCount={selectedIds.size}
+          members={workspace.members}
+          labels={labels}
+          onArchive={handleBulkArchive}
+          onReassign={handleBulkReassign}
+          onLabel={handleBulkLabel}
+          onCancel={() => setSelectedIds(new Set())}
+        />
       )}
     </div>
   );

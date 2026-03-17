@@ -23,6 +23,9 @@ interface BoardProps {
   onItemUpdate: (itemNumber: number, data: Partial<WorkItem>) => Promise<void>;
   basePath: string;
   onRefresh: () => void;
+  selectable?: boolean;
+  selectedIds?: Set<number>;
+  onToggleSelect?: (id: number) => void;
 }
 
 function generatePosition(before: string | null, after: string | null): string {
@@ -50,6 +53,9 @@ export default function Board({
   onItemUpdate,
   basePath,
   onRefresh,
+  selectable,
+  selectedIds,
+  onToggleSelect,
 }: BoardProps) {
   const [activeId, setActiveId] = useState<number | null>(null);
   const [selectedItem, setSelectedItem] = useState<WorkItem | null>(null);
@@ -130,6 +136,9 @@ export default function Board({
                 items={columnItems}
                 onItemCreate={onItemCreate}
                 onCardClick={setSelectedItem}
+                selectable={selectable}
+                selectedIds={selectedIds}
+                onToggleSelect={onToggleSelect}
               />
             );
           })}

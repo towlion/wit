@@ -2,6 +2,7 @@ export interface User {
   id: number;
   email: string;
   display_name: string;
+  is_superuser?: boolean;
   created_at: string;
 }
 
@@ -111,4 +112,55 @@ export interface ApiToken {
 
 export interface ApiTokenCreated extends ApiToken {
   token: string;
+}
+
+export interface AdminDashboard {
+  total_users: number;
+  active_users: number;
+  total_workspaces: number;
+  total_items: number;
+  signups_last_7d: number;
+}
+
+export interface AdminUser {
+  id: number;
+  email: string;
+  display_name: string;
+  is_superuser: boolean;
+  is_active: boolean;
+  created_at: string;
+  workspace_count: number;
+}
+
+export interface AdminWorkspace {
+  id: number;
+  name: string;
+  slug: string;
+  created_at: string;
+  member_count: number;
+  project_count: number;
+  item_count: number;
+}
+
+export interface AdminAuditLogEntry {
+  id: number;
+  actor_id: number | null;
+  action: string;
+  entity_type: string;
+  entity_id: number;
+  details: Record<string, unknown> | null;
+  created_at: string;
+  actor: User | null;
+}
+
+export interface WorkspaceStats {
+  items_total: number;
+  items_last_7d: number;
+  active_members: number;
+  attachment_count: number;
+  storage_bytes: number;
+}
+
+export interface BulkOperationResult {
+  affected: number;
 }

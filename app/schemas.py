@@ -24,6 +24,7 @@ class UserResponse(BaseModel):
     id: int
     email: str
     display_name: str
+    is_superuser: bool = False
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -383,3 +384,83 @@ class ApiTokenResponse(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+# --- Admin ---
+class AdminDashboardResponse(BaseModel):
+    total_users: int
+    active_users: int
+    total_workspaces: int
+    total_items: int
+    signups_last_7d: int
+
+
+class AdminUserResponse(BaseModel):
+    id: int
+    email: str
+    display_name: str
+    is_superuser: bool
+    is_active: bool
+    created_at: datetime
+    workspace_count: int
+
+    model_config = {"from_attributes": True}
+
+
+class AdminUserUpdate(BaseModel):
+    is_active: bool | None = None
+    is_superuser: bool | None = None
+
+
+class AdminWorkspaceResponse(BaseModel):
+    id: int
+    name: str
+    slug: str
+    created_at: datetime
+    member_count: int
+    project_count: int
+    item_count: int
+
+    model_config = {"from_attributes": True}
+
+
+class AdminAuditLogResponse(BaseModel):
+    id: int
+    actor_id: int | None
+    action: str
+    entity_type: str
+    entity_id: int
+    details: dict | None
+    created_at: datetime
+    actor: UserResponse | None = None
+
+    model_config = {"from_attributes": True}
+
+
+# --- Workspace Stats ---
+class WorkspaceStatsResponse(BaseModel):
+    items_total: int
+    items_last_7d: int
+    active_members: int
+    attachment_count: int
+    storage_bytes: int
+
+
+# --- Bulk Operations ---
+class BulkArchiveRequest(BaseModel):
+    item_ids: list[int]
+
+
+class BulkReassignRequest(BaseModel):
+    item_ids: list[int]
+    assignee_id: int
+
+
+class BulkLabelsRequest(BaseModel):
+    item_ids: list[int]
+    label_id: int
+    action: str  # "add" or "remove"
+
+
+class BulkOperationResponse(BaseModel):
+    affected: int

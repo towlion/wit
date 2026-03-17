@@ -10,7 +10,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 from app.routers import (
-    activity, api_tokens, attachments, auth, custom_fields, invites, labels,
+    activity, admin, api_tokens, attachments, auth, custom_fields, invites, labels,
     notifications, profile, projects, search, states, webhooks, work_items, workspaces,
 )
 
@@ -74,6 +74,7 @@ app.include_router(invites.router, prefix="/api")
 app.include_router(notifications.router, prefix="/api")
 app.include_router(webhooks.router, prefix="/api")
 app.include_router(api_tokens.router, prefix="/api")
+app.include_router(admin.router, prefix="/api")
 
 
 @app.get("/health")

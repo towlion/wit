@@ -10,9 +10,12 @@ interface ColumnProps {
   items: WorkItem[];
   onItemCreate: (statusId: number, title: string) => Promise<void>;
   onCardClick: (item: WorkItem) => void;
+  selectable?: boolean;
+  selectedIds?: Set<number>;
+  onToggleSelect?: (id: number) => void;
 }
 
-export default function Column({ state, items, onItemCreate, onCardClick }: ColumnProps) {
+export default function Column({ state, items, onItemCreate, onCardClick, selectable, selectedIds, onToggleSelect }: ColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: `column-${state.id}`,
   });
@@ -41,7 +44,14 @@ export default function Column({ state, items, onItemCreate, onCardClick }: Colu
 
       <div className="flex-1 flex flex-col gap-1.5 px-1.5 pb-1.5 mt-1.5 min-h-[100px]">
         {items.map((item) => (
-          <Card key={item.id} item={item} onClick={() => onCardClick(item)} />
+          <Card
+            key={item.id}
+            item={item}
+            onClick={() => onCardClick(item)}
+            selectable={selectable}
+            selected={selectedIds?.has(item.id)}
+            onToggleSelect={onToggleSelect ? () => onToggleSelect(item.id) : undefined}
+          />
         ))}
         <QuickCreate onSubmit={(title) => onItemCreate(state.id, title)} />
       </div>
