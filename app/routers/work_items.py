@@ -85,12 +85,15 @@ def list_items(
     overdue: bool = Query(False),
     due_before: datetime.date | None = Query(None),
     due_after: datetime.date | None = Query(None),
+    sort_by: str | None = Query(None),
+    sort_dir: str = Query("asc"),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """List non-archived work items in a project.
 
     Supports filtering by due date range and overdue status.
+    Supports sorting by title, priority, due_date, created_at, or item_number.
     """
     project = _resolve_project(ws_slug, project_slug, user, db)
     q = db.query(WorkItem).filter_by(project_id=project.id, archived=False)
@@ -100,7 +103,31 @@ def list_items(
         q = q.filter(WorkItem.due_date <= due_before, WorkItem.due_date.isnot(None))
     if due_after:
         q = q.filter(WorkItem.due_date >= due_after, WorkItem.due_date.isnot(None))
-    items = q.order_by(WorkItem.position).all()
+
+    sort_columns = {
+        "title": WorkItem.title,
+        "due_date": WorkItem.due_date,
+        "created_at": WorkItem.created_at,
+        "item_number": WorkItem.item_number,
+    }
+    if sort_by == "priority":
+        priority_order = case(
+            (WorkItem.priority == "urgent", 0),
+            (WorkItem.priority == "high", 1),
+            (WorkItem.priority == "medium", 2),
+            (WorkItem.priority == "low", 3),
+            else_=4,
+        )
+        order_col = priority_order.desc() if sort_dir == "desc" else priority_order.asc()
+        q = q.order_by(order_col)
+    elif sort_by in sort_columns:
+        col = sort_columns[sort_by]
+        order_col = col.desc().nullslast() if sort_dir == "desc" else col.asc().nullslast()
+        q = q.order_by(order_col)
+    else:
+        q = q.order_by(WorkItem.position)
+
+    items = q.all()
 
     if not items:
         return []

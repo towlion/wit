@@ -11,6 +11,7 @@ import CalendarView from "@/components/CalendarView";
 import DependencyGraph from "@/components/DependencyGraph";
 import TimelineView from "@/components/TimelineView";
 import SprintBacklog from "@/components/SprintBacklog";
+import TableView from "@/components/TableView";
 import SearchModal from "@/components/SearchModal";
 import ShortcutHelp from "@/components/ShortcutHelp";
 import BulkToolbar from "@/components/BulkToolbar";
@@ -21,7 +22,7 @@ import { useAuth } from "@/lib/auth";
 import { useToast } from "@/lib/toast";
 import Link from "next/link";
 
-type ViewMode = "board" | "calendar" | "dependencies" | "timeline" | "backlog";
+type ViewMode = "board" | "calendar" | "dependencies" | "timeline" | "backlog" | "table";
 
 export default function ProjectBoardPage() {
   const params = useParams();
@@ -221,6 +222,20 @@ export default function ProjectBoardPage() {
     }
   }
 
+  async function handleBulkStatus(statusId: number) {
+    try {
+      await api.post<BulkOperationResult>(`/workspaces/${wsSlug}/bulk/status`, {
+        item_ids: Array.from(selectedIds),
+        status_id: statusId,
+      });
+      toast.success(`Updated status on ${selectedIds.size} item${selectedIds.size > 1 ? "s" : ""}`);
+      setSelectedIds(new Set());
+      loadData();
+    } catch {
+      toast.error("Failed to update status");
+    }
+  }
+
   async function handleBulkLabel(labelId: number, action: "add" | "remove") {
     try {
       await api.post<BulkOperationResult>(`/workspaces/${wsSlug}/bulk/labels`, {
@@ -302,6 +317,16 @@ export default function ProjectBoardPage() {
               }`}
             >
               Backlog
+            </button>
+            <button
+              onClick={() => setViewMode("table")}
+              className={`text-[10px] px-2.5 py-1.5 font-medium transition-colors ${
+                viewMode === "table"
+                  ? "bg-[var(--accent-subtle)] text-[var(--accent-hover)]"
+                  : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
+              }`}
+            >
+              Table
             </button>
           </div>
           {viewMode === "board" && (
@@ -427,6 +452,20 @@ export default function ProjectBoardPage() {
           onCardClick={setSelectedItem}
           canEdit={canEdit}
         />
+      ) : viewMode === "table" ? (
+        <TableView
+          items={filteredItems}
+          states={states}
+          labels={labels}
+          members={workspace?.members || []}
+          onCardClick={setSelectedItem}
+          onItemUpdate={onItemUpdate}
+          canEdit={canEdit}
+          selectable={isAdmin}
+          selectedIds={selectedIds}
+          onToggleSelect={toggleSelect}
+          onSelectAll={(ids) => setSelectedIds(new Set(ids))}
+        />
       ) : (
         <CalendarView
           items={filteredItems}
@@ -436,7 +475,7 @@ export default function ProjectBoardPage() {
           onItemUpdate={onItemUpdate}
         />
       )}
-      {selectedItem && (viewMode === "calendar" || viewMode === "dependencies" || viewMode === "timeline" || viewMode === "backlog") && (
+      {selectedItem && (viewMode === "calendar" || viewMode === "dependencies" || viewMode === "timeline" || viewMode === "backlog" || viewMode === "table") && (
         <CardDetail
           item={selectedItem}
           basePath={basePath}
@@ -458,9 +497,11 @@ export default function ProjectBoardPage() {
           selectedCount={selectedIds.size}
           members={workspace.members}
           labels={labels}
+          states={states}
           onArchive={handleBulkArchive}
           onReassign={handleBulkReassign}
           onLabel={handleBulkLabel}
+          onStatusChange={handleBulkStatus}
           onCancel={() => setSelectedIds(new Set())}
         />
       )}

@@ -573,6 +573,12 @@ class BulkLabelsRequest(BaseModel):
     action: str = Field(description="'add' or 'remove'")
 
 
+class BulkStatusRequest(BaseModel):
+    """Change status of multiple items at once."""
+    item_ids: list[int] = Field(description="List of work item IDs")
+    status_id: int = Field(description="Target workflow state ID")
+
+
 class BulkOperationResponse(BaseModel):
     """Result of a bulk operation."""
     affected: int = Field(description="Number of items affected")

@@ -1,15 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import type { Member, Label } from "@/lib/types";
+import type { Member, Label, WorkflowState } from "@/lib/types";
 
 interface BulkToolbarProps {
   selectedCount: number;
   members: Member[];
   labels: Label[];
+  states?: WorkflowState[];
   onArchive: () => Promise<void>;
   onReassign: (assigneeId: number) => Promise<void>;
   onLabel: (labelId: number, action: "add" | "remove") => Promise<void>;
+  onStatusChange?: (statusId: number) => Promise<void>;
   onCancel: () => void;
 }
 
@@ -17,13 +19,16 @@ export default function BulkToolbar({
   selectedCount,
   members,
   labels,
+  states,
   onArchive,
   onReassign,
   onLabel,
+  onStatusChange,
   onCancel,
 }: BulkToolbarProps) {
   const [showMembers, setShowMembers] = useState(false);
   const [showLabels, setShowLabels] = useState(false);
+  const [showStatuses, setShowStatuses] = useState(false);
   const [loading, setLoading] = useState(false);
 
   async function handleAction(fn: () => Promise<void>) {
@@ -56,7 +61,7 @@ export default function BulkToolbar({
 
         <div className="relative">
           <button
-            onClick={() => { setShowMembers(!showMembers); setShowLabels(false); }}
+            onClick={() => { setShowMembers(!showMembers); setShowLabels(false); setShowStatuses(false); }}
             disabled={loading}
             className="text-xs px-3 py-1.5 rounded-lg bg-[var(--bg-tertiary)] hover:bg-[var(--bg-tertiary)]/80 text-[var(--text-secondary)] transition-colors disabled:opacity-50"
           >
@@ -82,7 +87,7 @@ export default function BulkToolbar({
 
         <div className="relative">
           <button
-            onClick={() => { setShowLabels(!showLabels); setShowMembers(false); }}
+            onClick={() => { setShowLabels(!showLabels); setShowMembers(false); setShowStatuses(false); }}
             disabled={loading}
             className="text-xs px-3 py-1.5 rounded-lg bg-[var(--bg-tertiary)] hover:bg-[var(--bg-tertiary)]/80 text-[var(--text-secondary)] transition-colors disabled:opacity-50"
           >
@@ -115,6 +120,32 @@ export default function BulkToolbar({
             </div>
           )}
         </div>
+
+        {states && states.length > 0 && onStatusChange && (
+          <div className="relative">
+            <button
+              onClick={() => { setShowStatuses(!showStatuses); setShowMembers(false); setShowLabels(false); }}
+              disabled={loading}
+              className="text-xs px-3 py-1.5 rounded-lg bg-[var(--bg-tertiary)] hover:bg-[var(--bg-tertiary)]/80 text-[var(--text-secondary)] transition-colors disabled:opacity-50"
+            >
+              Status
+            </button>
+            {showStatuses && (
+              <div className="absolute bottom-full mb-2 left-0 w-48 bg-[var(--bg-primary)] border border-[var(--border)] rounded-xl shadow-2xl shadow-black/40 overflow-hidden">
+                {states.map((s) => (
+                  <button
+                    key={s.id}
+                    onClick={() => { handleAction(() => onStatusChange(s.id)); setShowStatuses(false); }}
+                    className="w-full text-left px-3 py-2 text-xs hover:bg-[var(--bg-tertiary)] transition-colors flex items-center gap-2"
+                  >
+                    <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
+                    {s.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="w-px h-5 bg-[var(--border)]" />
 

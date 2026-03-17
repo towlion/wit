@@ -26,6 +26,7 @@ from app.schemas import (
     BulkLabelsRequest,
     BulkOperationResponse,
     BulkReassignRequest,
+    BulkStatusRequest,
     CrossProjectItemResponse,
     MemberResponse,
     UpdateMemberRequest,
@@ -496,6 +497,47 @@ def bulk_labels(
                     old_value=label.name,
                 )
             )
+            affected += 1
+    db.commit()
+    return BulkOperationResponse(affected=affected)
+
+
+@router.post("/{slug}/bulk/status", response_model=BulkOperationResponse)
+def bulk_status(
+    slug: str,
+    body: BulkStatusRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Change status of multiple items at once. Requires admin role."""
+    ws = db.query(Workspace).filter_by(slug=slug).first()
+    if not ws:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    get_workspace_member(ws.id, user.id, db, min_role="admin")
+
+    target_state = db.get(WorkflowState, body.status_id)
+    if not target_state:
+        raise HTTPException(status_code=404, detail="Status not found")
+
+    valid_ids = _get_workspace_item_ids(db, ws.id, body.item_ids)
+    if not valid_ids:
+        return BulkOperationResponse(affected=0)
+
+    affected = 0
+    for item_id in valid_ids:
+        item = db.get(WorkItem, item_id)
+        if item and item.status_id != body.status_id:
+            old_state = db.get(WorkflowState, item.status_id)
+            db.add(
+                ActivityEvent(
+                    work_item_id=item_id,
+                    user_id=user.id,
+                    event_type="status_change",
+                    old_value=old_state.name if old_state else str(item.status_id),
+                    new_value=target_state.name,
+                )
+            )
+            item.status_id = body.status_id
             affected += 1
     db.commit()
     return BulkOperationResponse(affected=affected)
