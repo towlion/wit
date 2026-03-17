@@ -9,8 +9,8 @@ from app.activity import record_activity
 from app.automation import run_status_automations
 from app.database import get_db
 from app.deps import get_current_user, get_workspace_member
-from app.models import Label, Project, User, Workspace, WorkflowState, WorkItem, WorkItemAssignee, WorkItemDependency, WorkItemLabel
-from app.schemas import DependencyCreate, DependencyItem, DependencyResponse, WorkItemCreate, WorkItemResponse, WorkItemUpdate
+from app.models import Label, Project, Subtask, User, Workspace, WorkflowState, WorkItem, WorkItemAssignee, WorkItemDependency, WorkItemLabel
+from app.schemas import DependencyCreate, DependencyItem, DependencyResponse, SubtaskCreate, SubtaskResponse, SubtaskUpdate, WorkItemCreate, WorkItemResponse, WorkItemUpdate
 
 from app.websocket import manager as ws_manager
 
@@ -54,6 +54,9 @@ def _get_dependencies(db: Session, item_id: int) -> dict:
 def _item_response(db: Session, item: WorkItem) -> dict:
     data = WorkItemResponse.model_validate(item).model_dump()
     data.update(_get_dependencies(db, item.id))
+    total = db.query(Subtask).filter_by(work_item_id=item.id).count()
+    completed = db.query(Subtask).filter_by(work_item_id=item.id, completed=True).count()
+    data["subtask_summary"] = {"total": total, "completed": completed}
     return data
 
 
@@ -449,3 +452,112 @@ def remove_dependency(
     db.commit()
     _broadcast(project.id, "item_updated", item.item_number)
     _broadcast(project.id, "item_updated", related.item_number)
+
+
+# --- Subtasks ---
+@router.get(
+    "/workspaces/{ws_slug}/projects/{project_slug}/items/{item_number}/subtasks",
+    response_model=list[SubtaskResponse],
+)
+def list_subtasks(
+    ws_slug: str,
+    project_slug: str,
+    item_number: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    project = _resolve_project(ws_slug, project_slug, user, db)
+    item = db.query(WorkItem).filter_by(project_id=project.id, item_number=item_number).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    return db.query(Subtask).filter_by(work_item_id=item.id).order_by(Subtask.position).all()
+
+
+@router.post(
+    "/workspaces/{ws_slug}/projects/{project_slug}/items/{item_number}/subtasks",
+    response_model=SubtaskResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_subtask(
+    ws_slug: str,
+    project_slug: str,
+    item_number: int,
+    body: SubtaskCreate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    project = _resolve_project(ws_slug, project_slug, user, db)
+    item = db.query(WorkItem).filter_by(project_id=project.id, item_number=item_number).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    from sqlalchemy import func as sa_func
+    max_pos = db.query(sa_func.coalesce(sa_func.max(Subtask.position), -1)).filter_by(work_item_id=item.id).scalar()
+    subtask = Subtask(
+        work_item_id=item.id,
+        title=body.title,
+        position=max_pos + 1,
+    )
+    db.add(subtask)
+    record_activity(db, item.id, user.id, "subtask_added", new_value=body.title)
+    db.commit()
+    db.refresh(subtask)
+    _broadcast(project.id, "item_updated", item.item_number)
+    return subtask
+
+
+@router.patch(
+    "/workspaces/{ws_slug}/projects/{project_slug}/items/{item_number}/subtasks/{subtask_id}",
+    response_model=SubtaskResponse,
+)
+def update_subtask(
+    ws_slug: str,
+    project_slug: str,
+    item_number: int,
+    subtask_id: int,
+    body: SubtaskUpdate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    project = _resolve_project(ws_slug, project_slug, user, db)
+    item = db.query(WorkItem).filter_by(project_id=project.id, item_number=item_number).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    subtask = db.query(Subtask).filter_by(id=subtask_id, work_item_id=item.id).first()
+    if not subtask:
+        raise HTTPException(status_code=404, detail="Subtask not found")
+    if body.title is not None:
+        subtask.title = body.title
+    if body.position is not None:
+        subtask.position = body.position
+    if body.completed is not None and body.completed != subtask.completed:
+        subtask.completed = body.completed
+        if body.completed:
+            record_activity(db, item.id, user.id, "subtask_completed", new_value=subtask.title)
+    db.commit()
+    db.refresh(subtask)
+    _broadcast(project.id, "item_updated", item.item_number)
+    return subtask
+
+
+@router.delete(
+    "/workspaces/{ws_slug}/projects/{project_slug}/items/{item_number}/subtasks/{subtask_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_subtask(
+    ws_slug: str,
+    project_slug: str,
+    item_number: int,
+    subtask_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    project = _resolve_project(ws_slug, project_slug, user, db)
+    item = db.query(WorkItem).filter_by(project_id=project.id, item_number=item_number).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    subtask = db.query(Subtask).filter_by(id=subtask_id, work_item_id=item.id).first()
+    if not subtask:
+        raise HTTPException(status_code=404, detail="Subtask not found")
+    db.delete(subtask)
+    db.commit()
+    _broadcast(project.id, "item_updated", item.item_number)

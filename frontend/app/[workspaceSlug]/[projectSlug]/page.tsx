@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
 import type { WorkflowState, WorkItem, Label, Workspace, BulkOperationResult, Project, BoardSettings, ItemTemplate } from "@/lib/types";
 import Board from "@/components/Board";
@@ -31,7 +31,19 @@ export default function ProjectBoardPage() {
   const [items, setItems] = useState<WorkItem[]>([]);
   const [labels, setLabels] = useState<Label[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState<Filters>({});
+  const searchParams = useSearchParams();
+  const routerNav = useRouter();
+  const [filters, setFilters] = useState<Filters>(() => {
+    const f: Filters = {};
+    const p = searchParams.get("priority"); if (p) f.priority = p;
+    const a = searchParams.get("assigneeId"); if (a) f.assigneeId = parseInt(a);
+    const l = searchParams.get("labelId"); if (l) f.labelId = parseInt(l);
+    const s = searchParams.get("statusId"); if (s) f.statusId = parseInt(s);
+    const db = searchParams.get("dueBefore"); if (db) f.dueBefore = db;
+    const da = searchParams.get("dueAfter"); if (da) f.dueAfter = da;
+    if (searchParams.get("overdue") === "true") f.overdue = true;
+    return f;
+  });
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("board");
@@ -103,11 +115,28 @@ export default function ProjectBoardPage() {
     api.patch(basePath, { board_settings: newSettings }).catch(() => {});
   }
 
+  function handleFiltersChange(f: Filters) {
+    setFilters(f);
+    const params = new URLSearchParams();
+    if (f.priority) params.set("priority", f.priority);
+    if (f.assigneeId) params.set("assigneeId", String(f.assigneeId));
+    if (f.labelId) params.set("labelId", String(f.labelId));
+    if (f.statusId) params.set("statusId", String(f.statusId));
+    if (f.dueBefore) params.set("dueBefore", f.dueBefore);
+    if (f.dueAfter) params.set("dueAfter", f.dueAfter);
+    if (f.overdue) params.set("overdue", "true");
+    const qs = params.toString();
+    routerNav.replace(`/${wsSlug}/${projectSlug}${qs ? `?${qs}` : ""}`, { scroll: false });
+  }
+
   const filteredItems = items.filter((item) => {
     if (filters.priority && item.priority !== filters.priority) return false;
     if (filters.assigneeId && !item.assignees.some((a) => a.id === filters.assigneeId))
       return false;
     if (filters.labelId && !item.labels.some((l) => l.id === filters.labelId)) return false;
+    if (filters.statusId && item.status_id !== filters.statusId) return false;
+    if (filters.dueBefore && (!item.due_date || item.due_date > filters.dueBefore)) return false;
+    if (filters.dueAfter && (!item.due_date || item.due_date < filters.dueAfter)) return false;
     if (filters.overdue) {
       const today = new Date().toISOString().split("T")[0];
       if (!item.due_date || item.due_date >= today) return false;
@@ -195,7 +224,7 @@ export default function ProjectBoardPage() {
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-[var(--border)] shrink-0 bg-[var(--bg-primary)]/50 backdrop-blur-sm">
         <div className="flex items-center gap-3">
-          <FilterBar filters={filters} onChange={setFilters} labels={labels} />
+          <FilterBar filters={filters} onChange={handleFiltersChange} labels={labels} states={states} members={workspace?.members || []} basePath={basePath} />
           <div className="flex items-center rounded-lg border border-[var(--border)] overflow-hidden">
             <button
               onClick={() => setViewMode("board")}

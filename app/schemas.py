@@ -25,6 +25,9 @@ class UserResponse(BaseModel):
     email: str
     display_name: str
     is_superuser: bool = False
+    theme: str | None = None
+    email_notifications: bool = False
+    email_digest_mode: str = "immediate"
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -33,6 +36,9 @@ class UserResponse(BaseModel):
 # --- Profile ---
 class ProfileUpdate(BaseModel):
     display_name: str | None = None
+    theme: str | None = None
+    email_notifications: bool | None = None
+    email_digest_mode: str | None = None
 
 
 class PasswordChange(BaseModel):
@@ -234,6 +240,7 @@ class WorkItemResponse(BaseModel):
     labels: list[LabelResponse] = []
     blocks: list[DependencyItem] = []
     blocked_by: list[DependencyItem] = []
+    subtask_summary: dict | None = None
 
     model_config = {"from_attributes": True}
 
@@ -659,3 +666,47 @@ class WorkspaceInsightsResponse(BaseModel):
     project_summaries: list[ProjectSummary]
     most_active_members: list[ActiveMemberSummary]
     activity_trend: list[ActivityTrendPoint]
+
+
+# --- Saved Views ---
+class SavedViewCreate(BaseModel):
+    name: str
+    filters: dict
+
+
+class SavedViewResponse(BaseModel):
+    id: int
+    project_id: int
+    user_id: int
+    name: str
+    filters: dict
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+# --- Subtasks ---
+class SubtaskCreate(BaseModel):
+    title: str
+
+
+class SubtaskUpdate(BaseModel):
+    title: str | None = None
+    completed: bool | None = None
+    position: int | None = None
+
+
+class SubtaskResponse(BaseModel):
+    id: int
+    work_item_id: int
+    title: str
+    completed: bool
+    position: int
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class SubtaskSummary(BaseModel):
+    total: int
+    completed: int

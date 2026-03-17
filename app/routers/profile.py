@@ -18,6 +18,16 @@ def update_profile(
 ):
     if body.display_name is not None:
         user.display_name = body.display_name
+    if body.theme is not None:
+        if body.theme not in ("dark", "light", "system"):
+            raise HTTPException(status_code=400, detail="Invalid theme value")
+        user.theme = body.theme if body.theme != "system" else None
+    if body.email_notifications is not None:
+        user.email_notifications = body.email_notifications
+    if body.email_digest_mode is not None:
+        if body.email_digest_mode not in ("immediate", "daily"):
+            raise HTTPException(status_code=400, detail="Invalid digest mode")
+        user.email_digest_mode = body.email_digest_mode
     db.commit()
     db.refresh(user)
     return user

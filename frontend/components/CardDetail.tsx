@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { api } from "@/lib/api";
-import type { DependencyItem, WatchStatus, WorkItem, WorkflowState } from "@/lib/types";
+import type { DependencyItem, Subtask, WatchStatus, WorkItem, WorkflowState } from "@/lib/types";
 import ActivityFeed from "./ActivityFeed";
 import AttachmentList from "./AttachmentList";
 import CustomFieldInput from "./CustomFieldInput";
@@ -72,6 +72,10 @@ export default function CardDetail({ item, basePath, wsSlug, onClose, onUpdate }
   // Watch
   const [watchStatus, setWatchStatus] = useState<WatchStatus>({ watching: false, watcher_count: 0 });
 
+  // Subtasks
+  const [subtasks, setSubtasks] = useState<Subtask[]>([]);
+  const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
+
   const itemPath = `${basePath}/items/${item.item_number}`;
 
   useEffect(() => {
@@ -84,6 +88,7 @@ export default function CardDetail({ item, basePath, wsSlug, onClose, onUpdate }
     });
     api.get<AttachmentItem[]>(`${itemPath}/attachments`).then(setAttachments);
     api.get<WatchStatus>(`${itemPath}/watch`).then(setWatchStatus);
+    api.get<Subtask[]>(`${itemPath}/subtasks`).then(setSubtasks);
     api.get<{ blocks: DependencyItem[]; blocked_by: DependencyItem[] }>(`${itemPath}/dependencies`).then((deps) => {
       setBlocks(deps.blocks);
       setBlockedBy(deps.blocked_by);
@@ -149,6 +154,25 @@ export default function CardDetail({ item, basePath, wsSlug, onClose, onUpdate }
     setBlocks((prev) => prev.filter((d) => d.item_number !== relatedNumber));
     setBlockedBy((prev) => prev.filter((d) => d.item_number !== relatedNumber));
   }
+
+  async function handleAddSubtask() {
+    if (!newSubtaskTitle.trim()) return;
+    const st = await api.post<Subtask>(`${itemPath}/subtasks`, { title: newSubtaskTitle.trim() });
+    setSubtasks((prev) => [...prev, st]);
+    setNewSubtaskTitle("");
+  }
+
+  async function handleToggleSubtask(subtask: Subtask) {
+    const updated = await api.patch<Subtask>(`${itemPath}/subtasks/${subtask.id}`, { completed: !subtask.completed });
+    setSubtasks((prev) => prev.map((s) => s.id === subtask.id ? updated : s));
+  }
+
+  async function handleDeleteSubtask(subtaskId: number) {
+    await api.delete(`${itemPath}/subtasks/${subtaskId}`);
+    setSubtasks((prev) => prev.filter((s) => s.id !== subtaskId));
+  }
+
+  const subtaskCompleted = subtasks.filter((s) => s.completed).length;
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
@@ -435,6 +459,74 @@ export default function CardDetail({ item, basePath, wsSlug, onClose, onUpdate }
             />
             <div className="mt-2">
               <FileUpload onUpload={handleUpload} />
+            </div>
+          </div>
+
+          {/* Subtasks / Checklist */}
+          <div className="h-px bg-[var(--border)] mb-5" />
+          <div className="mb-6">
+            <label className="block text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-2.5">
+              Checklist
+              {subtasks.length > 0 && (
+                <span className="ml-2 text-[var(--text-secondary)] normal-case font-normal">
+                  {subtaskCompleted}/{subtasks.length} completed
+                </span>
+              )}
+            </label>
+            {subtasks.length > 0 && (
+              <div className="w-full h-1.5 rounded-full bg-[var(--bg-tertiary)] mb-3 overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all ${subtaskCompleted === subtasks.length ? "bg-green-400" : "bg-[var(--accent)]"}`}
+                  style={{ width: `${subtasks.length > 0 ? Math.round((subtaskCompleted / subtasks.length) * 100) : 0}%` }}
+                />
+              </div>
+            )}
+            <div className="space-y-1 mb-2">
+              {subtasks.map((st) => (
+                <div key={st.id} className="flex items-center gap-2 group">
+                  <button
+                    onClick={() => handleToggleSubtask(st)}
+                    className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-all ${
+                      st.completed
+                        ? "bg-[var(--accent)] border-[var(--accent)] text-white"
+                        : "border-[var(--border)] hover:border-[var(--accent)]"
+                    }`}
+                  >
+                    {st.completed && (
+                      <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </button>
+                  <span className={`text-sm flex-1 ${st.completed ? "line-through text-[var(--text-muted)]" : "text-[var(--text-primary)]"}`}>
+                    {st.title}
+                  </span>
+                  <button
+                    onClick={() => handleDeleteSubtask(st.id)}
+                    className="text-[var(--text-muted)] hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newSubtaskTitle}
+                onChange={(e) => setNewSubtaskTitle(e.target.value)}
+                placeholder="Add a subtask..."
+                className="input-base py-1.5 text-sm flex-1"
+                onKeyDown={(e) => e.key === "Enter" && handleAddSubtask()}
+              />
+              <button
+                onClick={handleAddSubtask}
+                className="text-xs px-3 py-1.5 rounded-lg bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] transition-colors"
+              >
+                Add
+              </button>
             </div>
           </div>
 

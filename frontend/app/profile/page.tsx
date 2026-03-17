@@ -222,6 +222,53 @@ export default function ProfilePage() {
 
       <div className="border-t border-[var(--border)] pt-8 mt-8">
         <h2 className="text-sm font-medium text-[var(--text-secondary)] uppercase tracking-wider mb-4">
+          Email Notifications
+        </h2>
+        <div className="space-y-4 mb-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-sm text-[var(--text-primary)]">Enable email notifications</div>
+              <div className="text-xs text-[var(--text-muted)] mt-0.5">Receive emails for comments, mentions, and status changes on watched items</div>
+            </div>
+            <button
+              onClick={async () => {
+                const newVal = !user.email_notifications;
+                await api.patch("/profile", { email_notifications: newVal });
+                await refreshUser();
+              }}
+              className={`relative w-10 h-5 rounded-full transition-colors ${
+                user.email_notifications ? "bg-[var(--accent)]" : "bg-[var(--bg-tertiary)] border border-[var(--border)]"
+              }`}
+            >
+              <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
+                user.email_notifications ? "translate-x-5" : "translate-x-0.5"
+              }`} />
+            </button>
+          </div>
+          {user.email_notifications && (
+            <div>
+              <label className="block text-sm text-[var(--text-secondary)] mb-1">Delivery mode</label>
+              <select
+                value={user.email_digest_mode || "immediate"}
+                onChange={async (e) => {
+                  await api.patch("/profile", { email_digest_mode: e.target.value });
+                  await refreshUser();
+                }}
+                className="px-3 py-2 rounded-lg bg-[var(--bg-secondary)] border border-[var(--border)] text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/50 focus:border-[var(--accent)]"
+              >
+                <option value="immediate">Send immediately</option>
+                <option value="daily">Daily digest</option>
+              </select>
+            </div>
+          )}
+          <p className="text-xs text-[var(--text-muted)]">
+            Email notifications require SMTP to be configured on the server.
+          </p>
+        </div>
+      </div>
+
+      <div className="border-t border-[var(--border)] pt-8 mt-8">
+        <h2 className="text-sm font-medium text-[var(--text-secondary)] uppercase tracking-wider mb-4">
           API Tokens
         </h2>
 

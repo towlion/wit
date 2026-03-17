@@ -3,6 +3,9 @@ export interface User {
   email: string;
   display_name: string;
   is_superuser?: boolean;
+  theme?: string | null;
+  email_notifications?: boolean;
+  email_digest_mode?: string;
   created_at: string;
 }
 
@@ -76,6 +79,29 @@ export interface DependencyItem {
   title: string;
 }
 
+export interface SubtaskSummary {
+  total: number;
+  completed: number;
+}
+
+export interface Subtask {
+  id: number;
+  work_item_id: number;
+  title: string;
+  completed: boolean;
+  position: number;
+  created_at: string;
+}
+
+export interface SavedView {
+  id: number;
+  project_id: number;
+  user_id: number;
+  name: string;
+  filters: Record<string, unknown>;
+  created_at: string;
+}
+
 export interface WorkItem {
   id: number;
   project_id: number;
@@ -93,6 +119,7 @@ export interface WorkItem {
   labels: Label[];
   blocks: DependencyItem[];
   blocked_by: DependencyItem[];
+  subtask_summary?: SubtaskSummary | null;
 }
 
 export interface ActivityEvent {

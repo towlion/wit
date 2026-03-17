@@ -1,9 +1,10 @@
 import logging
+import threading
 
 import httpx
 from sqlalchemy.orm import Session
 
-from app.models import ItemWatcher, Notification, WebhookConfig, WorkItem, WorkItemAssignee
+from app.models import ItemWatcher, Notification, User, WebhookConfig, WorkItem, WorkItemAssignee
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +17,8 @@ def notify_item_watchers(
     title: str,
     body: str = "",
 ):
+    from app.email_service import send_notification_email, should_send_email
+
     # Notify assignees + creator + explicit watchers, excluding the actor
     watcher_ids = set()
     watcher_ids.add(work_item.created_by_id)
@@ -35,6 +38,23 @@ def notify_item_watchers(
             title=title,
             body=body,
         ))
+        if should_send_email(db, uid, work_item.id, event_type):
+            user = db.get(User, uid)
+            if user:
+                user_email = user.email
+                user_id = user.id
+
+                def _send(uid=user_id, email=user_email, wi_id=work_item.id, et=event_type, t=title, d=body or title):
+                    from app.database import SessionLocal
+                    thread_db = SessionLocal()
+                    try:
+                        thread_user = thread_db.get(User, uid)
+                        if thread_user:
+                            send_notification_email(thread_db, thread_user, wi_id, et, t, d)
+                    finally:
+                        thread_db.close()
+
+                threading.Thread(target=_send, daemon=True).start()
 
 
 def fire_webhooks(

@@ -26,6 +26,52 @@
   --warning-subtle: rgba(245, 158, 11, 0.1);
 }
 
+[data-theme="light"] {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8f9fa;
+  --bg-tertiary: #f0f1f3;
+  --bg-elevated: #e9ecef;
+  --bg-surface: #f4f5f7;
+  --border: #dee2e6;
+  --border-hover: #adb5bd;
+  --border-subtle: #e9ecef;
+  --text-primary: #1a1a2e;
+  --text-secondary: #495057;
+  --text-muted: #868e96;
+  --accent: #6366f1;
+  --accent-hover: #4f46e5;
+  --accent-glow: rgba(99, 102, 241, 0.15);
+  --accent-subtle: rgba(99, 102, 241, 0.08);
+  --danger: #ef4444;
+  --danger-subtle: rgba(239, 68, 68, 0.1);
+  --success: #16a34a;
+  --success-subtle: rgba(22, 163, 74, 0.1);
+  --warning: #d97706;
+  --warning-subtle: rgba(217, 119, 6, 0.1);
+}
+
+[data-theme="light"] .prose-invert {
+  --tw-prose-body: var(--text-secondary);
+  --tw-prose-headings: var(--text-primary);
+  --tw-prose-links: var(--accent);
+  --tw-prose-code: var(--text-primary);
+}
+
+[data-theme="light"] select {
+  background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%23495057' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: #ced4da;
+}
+[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
+  background: #adb5bd;
+}
+
+[data-theme="light"] .focus-ring {
+  --tw-ring-offset-color: #ffffff;
+}
+
 body {
   background: var(--bg-primary);
   color: var(--text-primary);

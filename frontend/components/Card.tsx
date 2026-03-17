@@ -43,7 +43,8 @@ export default function Card({ item, overlay, onClick, selectable, selected, onT
   const d = cardDisplay || DEFAULT_DISPLAY;
   const priorityColor = PRIORITY_COLORS[item.priority] || PRIORITY_COLORS.medium;
   const isBlocked = item.blocked_by && item.blocked_by.length > 0;
-  const hasMetadata = (d.show_priority) || (d.show_due_date && item.due_date) || (d.show_labels && item.labels.length > 0) || (d.show_assignees && item.assignees.length > 0) || isBlocked;
+  const hasSubtasks = item.subtask_summary && item.subtask_summary.total > 0;
+  const hasMetadata = (d.show_priority) || (d.show_due_date && item.due_date) || (d.show_labels && item.labels.length > 0) || (d.show_assignees && item.assignees.length > 0) || isBlocked || hasSubtasks;
 
   return (
     <div
@@ -120,6 +121,32 @@ export default function Card({ item, overlay, onClick, selectable, selected, onT
               blocked
             </span>
           )}
+
+          {hasSubtasks && (() => {
+            const { total, completed } = item.subtask_summary!;
+            const pct = Math.round((completed / total) * 100);
+            const allDone = completed === total;
+            return (
+              <span
+                className={`text-[10px] px-1.5 py-0.5 rounded-md font-medium border flex items-center gap-1.5 ${
+                  allDone
+                    ? "bg-green-500/15 text-green-400 border-green-500/20"
+                    : "bg-zinc-500/10 text-zinc-400 border-zinc-500/20"
+                }`}
+              >
+                <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+                {completed}/{total}
+                <div className="w-8 h-1 rounded-full bg-zinc-700 overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all ${allDone ? "bg-green-400" : "bg-[var(--accent)]"}`}
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+              </span>
+            );
+          })()}
 
           {d.show_due_date && item.due_date && (() => {
             const today = new Date().toISOString().split("T")[0];
