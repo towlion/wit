@@ -215,6 +215,7 @@ class WorkItemCreate(BaseModel):
     priority: str = Field(default="medium", description="Priority: low, medium, high, or critical")
     due_date: date | None = Field(default=None, description="Due date (YYYY-MM-DD)")
     sprint_id: int | None = Field(default=None, description="Sprint ID")
+    story_points: int | None = Field(default=None, description="Story point estimate")
 
 
 class WorkItemUpdate(BaseModel):
@@ -227,6 +228,7 @@ class WorkItemUpdate(BaseModel):
     archived: bool | None = None
     due_date: date | None = None
     sprint_id: int | None = None
+    story_points: int | None = None
 
 
 class WorkItemAssigneeResponse(BaseModel):
@@ -271,6 +273,7 @@ class WorkItemResponse(BaseModel):
     created_at: datetime
     due_date: date | None = None
     sprint_id: int | None = None
+    story_points: int | None = None
     assignees: list[WorkItemAssigneeResponse] = []
     labels: list[LabelResponse] = []
     blocks: list[DependencyItem] = []
@@ -891,6 +894,8 @@ class SprintResponse(BaseModel):
     created_at: datetime
     item_count: int = 0
     completed_count: int = 0
+    points_total: int = 0
+    points_completed: int = 0
 
     model_config = {"from_attributes": True}
 
@@ -901,6 +906,8 @@ class SprintVelocityItem(BaseModel):
     sprint_name: str
     total_items: int
     completed_items: int
+    total_points: int = 0
+    completed_points: int = 0
 
 
 # --- Project Members ---

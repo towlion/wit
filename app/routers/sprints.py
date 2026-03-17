@@ -35,9 +35,22 @@ def _sprint_response(db: Session, sprint: Sprint) -> dict:
         .filter(WorkItem.sprint_id == sprint.id, WorkItem.archived == False, WorkflowState.category == "done")
         .scalar()
     ) or 0
+    points_total = (
+        db.query(func.coalesce(func.sum(WorkItem.story_points), 0))
+        .filter(WorkItem.sprint_id == sprint.id, WorkItem.archived == False)
+        .scalar()
+    ) or 0
+    points_completed = (
+        db.query(func.coalesce(func.sum(WorkItem.story_points), 0))
+        .join(WorkflowState, WorkItem.status_id == WorkflowState.id)
+        .filter(WorkItem.sprint_id == sprint.id, WorkItem.archived == False, WorkflowState.category == "done")
+        .scalar()
+    ) or 0
     data = SprintResponse.model_validate(sprint).model_dump()
     data["item_count"] = total
     data["completed_count"] = completed
+    data["points_total"] = points_total
+    data["points_completed"] = points_completed
     return data
 
 
@@ -183,10 +196,23 @@ def sprint_velocity(
             .filter(WorkItem.sprint_id == s.id, WorkflowState.category == "done")
             .scalar()
         ) or 0
+        total_points = (
+            db.query(func.coalesce(func.sum(WorkItem.story_points), 0))
+            .filter(WorkItem.sprint_id == s.id)
+            .scalar()
+        ) or 0
+        completed_points = (
+            db.query(func.coalesce(func.sum(WorkItem.story_points), 0))
+            .join(WorkflowState, WorkItem.status_id == WorkflowState.id)
+            .filter(WorkItem.sprint_id == s.id, WorkflowState.category == "done")
+            .scalar()
+        ) or 0
         result.append(SprintVelocityItem(
             sprint_id=s.id,
             sprint_name=s.name,
             total_items=total,
             completed_items=completed,
+            total_points=total_points,
+            completed_points=completed_points,
         ))
     return result

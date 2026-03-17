@@ -202,6 +202,7 @@ class WorkItem(Base):
     )
     position: Mapped[str] = mapped_column(String(255), nullable=False, default="a0")
     due_date: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)
+    story_points: Mapped[int | None] = mapped_column(Integer, nullable=True)
     sprint_id: Mapped[int | None] = mapped_column(ForeignKey("sprints.id", ondelete="SET NULL"), nullable=True, index=True)
     archived: Mapped[bool] = mapped_column(Boolean, default=False)
     created_by_id: Mapped[int] = mapped_column(ForeignKey("users.id"))

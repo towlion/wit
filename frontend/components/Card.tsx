@@ -44,7 +44,7 @@ export default function Card({ item, overlay, onClick, selectable, selected, onT
   const priorityColor = PRIORITY_COLORS[item.priority] || PRIORITY_COLORS.medium;
   const isBlocked = item.blocked_by && item.blocked_by.length > 0;
   const hasSubtasks = item.subtask_summary && item.subtask_summary.total > 0;
-  const hasMetadata = (d.show_priority) || (d.show_due_date && item.due_date) || (d.show_labels && item.labels.length > 0) || (d.show_assignees && item.assignees.length > 0) || isBlocked || hasSubtasks;
+  const hasMetadata = (d.show_priority) || (d.show_due_date && item.due_date) || (d.show_labels && item.labels.length > 0) || (d.show_assignees && item.assignees.length > 0) || isBlocked || hasSubtasks || item.story_points != null;
 
   return (
     <div
@@ -110,6 +110,12 @@ export default function Card({ item, overlay, onClick, selectable, selected, onT
               }`}
             >
               {item.priority}
+            </span>
+          )}
+
+          {item.story_points != null && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-md font-medium border bg-violet-500/15 text-violet-400 border-violet-500/20">
+              {item.story_points}pt{item.story_points !== 1 ? "s" : ""}
             </span>
           )}
 

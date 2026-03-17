@@ -54,6 +54,7 @@ export default function CardDetail({ item, basePath, wsSlug, onClose, onUpdate }
   const [statusId, setStatusId] = useState(item.status_id);
   const [states, setStates] = useState<WorkflowState[]>([]);
   const [dueDate, setDueDate] = useState(item.due_date || "");
+  const [storyPoints, setStoryPoints] = useState<string>(item.story_points != null ? String(item.story_points) : "");
   const [editingDesc, setEditingDesc] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -107,6 +108,7 @@ export default function CardDetail({ item, basePath, wsSlug, onClose, onUpdate }
       priority,
       status_id: statusId,
       due_date: dueDate || null,
+      story_points: storyPoints ? parseInt(storyPoints) : null,
     } as Partial<WorkItem>);
     setSaving(false);
   }
@@ -271,6 +273,20 @@ export default function CardDetail({ item, basePath, wsSlug, onClose, onUpdate }
               type="date"
               value={dueDate}
               onChange={(e) => setDueDate(e.target.value)}
+              className="input-base py-2"
+            />
+          </div>
+
+          {/* Story Points */}
+          <div className="mb-6">
+            <label className="block text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-2">Story Points</label>
+            <input
+              type="number"
+              min="0"
+              max="100"
+              value={storyPoints}
+              onChange={(e) => setStoryPoints(e.target.value)}
+              placeholder="Unestimated"
               className="input-base py-2"
             />
           </div>

@@ -100,6 +100,9 @@ export default function SprintBacklog({ items, basePath, onItemUpdate, onCardCli
               </span>
               <span className="text-[11px] text-[var(--text-muted)] ml-auto">
                 {activeSprint.completed_count}/{activeSprint.item_count} done
+                {activeSprint.points_total > 0 && (
+                  <> &middot; {activeSprint.points_completed}/{activeSprint.points_total} pts</>
+                )}
               </span>
             </div>
             {activeSprint.goal && (

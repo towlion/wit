@@ -218,6 +218,7 @@ def create_item(
         priority=body.priority,
         due_date=body.due_date,
         sprint_id=body.sprint_id,
+        story_points=body.story_points,
         created_by_id=user.id,
     )
     db.add(item)
@@ -297,7 +298,7 @@ def update_item(
     if "archived" in update_data and update_data["archived"] and not item.archived:
         record_activity(db, item.id, user.id, "archived")
 
-    for field in ("title", "description", "status_id", "priority", "position", "archived", "due_date", "sprint_id"):
+    for field in ("title", "description", "status_id", "priority", "position", "archived", "due_date", "sprint_id", "story_points"):
         if field in update_data:
             setattr(item, field, update_data[field])
 

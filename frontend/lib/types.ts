@@ -117,6 +117,7 @@ export interface WorkItem {
   created_at: string;
   due_date: string | null;
   sprint_id: number | null;
+  story_points: number | null;
   assignees: User[];
   labels: Label[];
   blocks: DependencyItem[];
@@ -366,6 +367,8 @@ export interface Sprint {
   created_at: string;
   item_count: number;
   completed_count: number;
+  points_total: number;
+  points_completed: number;
 }
 
 // --- Project Members ---

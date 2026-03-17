@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import type { WorkItem, WorkflowState, Label, Member } from "@/lib/types";
 
-type SortField = "item_number" | "title" | "status" | "priority" | "due_date" | "created_at";
+type SortField = "item_number" | "title" | "status" | "priority" | "points" | "due_date" | "created_at";
 type SortDir = "asc" | "desc";
 
 const PRIORITY_ORDER: Record<string, number> = { urgent: 0, high: 1, medium: 2, low: 3 };
@@ -30,7 +30,7 @@ interface TableViewProps {
 
 interface EditingCell {
   itemNumber: number;
-  field: "title" | "status" | "priority" | "due_date";
+  field: "title" | "status" | "priority" | "due_date" | "points";
 }
 
 export default function TableView({
@@ -73,6 +73,11 @@ export default function TableView({
         }
         case "priority":
           return ((PRIORITY_ORDER[a.priority] ?? 4) - (PRIORITY_ORDER[b.priority] ?? 4)) * dir;
+        case "points": {
+          const pa = a.story_points ?? (dir > 0 ? Infinity : -Infinity);
+          const pb = b.story_points ?? (dir > 0 ? Infinity : -Infinity);
+          return (pa === pb ? 0 : pa < pb ? -1 : 1) * dir;
+        }
         case "due_date": {
           if (!a.due_date && !b.due_date) return 0;
           if (!a.due_date) return 1;
@@ -126,6 +131,8 @@ export default function TableView({
       }
     } else if (field === "due_date") {
       await onItemUpdate(itemNumber, { due_date: value || null } as Partial<WorkItem>);
+    } else if (field === "points") {
+      await onItemUpdate(itemNumber, { story_points: value ? parseInt(value) : null } as Partial<WorkItem>);
     }
   }
 
@@ -176,6 +183,12 @@ export default function TableView({
               onClick={() => toggleSort("priority")}
             >
               Priority {sortArrow("priority")}
+            </th>
+            <th
+              className="w-20 px-3 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)] cursor-pointer hover:text-[var(--text-secondary)] select-none"
+              onClick={() => toggleSort("points")}
+            >
+              Points {sortArrow("points")}
             </th>
             <th className="w-36 px-3 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
               Assignees
@@ -290,6 +303,33 @@ export default function TableView({
                     >
                       <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: PRIORITY_COLORS[item.priority] || "#6b7280" }} />
                       {item.priority}
+                    </span>
+                  )}
+                </td>
+                <td className="px-3 py-2">
+                  {isEditing && editingCell.field === "points" ? (
+                    <input
+                      type="number"
+                      autoFocus
+                      min="0"
+                      max="100"
+                      value={editValue}
+                      onChange={(e) => setEditValue(e.target.value)}
+                      onBlur={() => commitEdit(item.item_number, "points", editValue)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") commitEdit(item.item_number, "points", editValue);
+                        if (e.key === "Escape") setEditingCell(null);
+                      }}
+                      className="w-16 bg-transparent border border-[var(--accent)] rounded px-1.5 py-0.5 text-xs outline-none text-[var(--text-primary)]"
+                    />
+                  ) : (
+                    <span
+                      className={`text-xs ${canEdit ? "cursor-pointer hover:bg-[var(--bg-tertiary)] rounded px-1 -mx-1 transition-colors" : ""} ${
+                        item.story_points != null ? "text-violet-400" : "text-[var(--text-muted)]"
+                      }`}
+                      onClick={() => startEdit(item.item_number, "points", item.story_points != null ? String(item.story_points) : "")}
+                    >
+                      {item.story_points != null ? item.story_points : "—"}
                     </span>
                   )}
                 </td>
