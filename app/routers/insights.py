@@ -28,12 +28,16 @@ from app.schemas import (
     BurndownPoint,
     CycleTimeStats,
     MemberBreakdown,
+    MemberWorkload,
     PriorityDistributionItem,
     ProjectInsightsResponse,
     ProjectSummary,
+    ProjectWorkloadResponse,
     RecentlyCompletedItem,
     StatusDistributionItem,
+    WorkloadStatusBreakdown,
     WorkspaceInsightsResponse,
+    WorkspaceMemberWorkload,
 )
 
 router = APIRouter(tags=["insights"])
@@ -482,3 +486,140 @@ def workspace_insights(
         most_active_members=active_members,
         activity_trend=activity_trend,
     )
+
+
+def _build_workload(rows, users_map):
+    """Build MemberWorkload list from aggregated rows.
+
+    Each row: (user_id, category, item_count, point_sum)
+    """
+    member_data = defaultdict(lambda: {"breakdown": {}, "total_items": 0, "total_points": 0})
+    for user_id, category, item_count, point_sum in rows:
+        points = point_sum or 0
+        entry = member_data[user_id]
+        entry["total_items"] += item_count
+        entry["total_points"] += points
+        entry["breakdown"][category] = (item_count, points)
+
+    members = []
+    for user_id in sorted(member_data.keys()):
+        if user_id not in users_map:
+            continue
+        d = member_data[user_id]
+        bd = d["breakdown"]
+        members.append(MemberWorkload(
+            user_id=user_id,
+            display_name=users_map[user_id].display_name,
+            total_items=d["total_items"],
+            total_points=d["total_points"],
+            breakdown=WorkloadStatusBreakdown(
+                todo_items=bd.get("todo", (0, 0))[0],
+                todo_points=bd.get("todo", (0, 0))[1],
+                in_progress_items=bd.get("in_progress", (0, 0))[0],
+                in_progress_points=bd.get("in_progress", (0, 0))[1],
+                done_items=bd.get("done", (0, 0))[0],
+                done_points=bd.get("done", (0, 0))[1],
+            ),
+        ))
+    return members
+
+
+@router.get(
+    "/workspaces/{ws_slug}/projects/{project_slug}/workload",
+    response_model=ProjectWorkloadResponse,
+)
+def project_workload(
+    ws_slug: str,
+    project_slug: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get per-member workload breakdown for a project."""
+    _, project = _resolve_project(ws_slug, project_slug, user, db)
+
+    rows = (
+        db.query(
+            WorkItemAssignee.user_id,
+            WorkflowState.category,
+            func.count(WorkItem.id),
+            func.sum(WorkItem.story_points),
+        )
+        .join(WorkItem, WorkItemAssignee.work_item_id == WorkItem.id)
+        .join(WorkflowState, WorkItem.status_id == WorkflowState.id)
+        .filter(WorkItem.project_id == project.id, WorkItem.archived == False)
+        .group_by(WorkItemAssignee.user_id, WorkflowState.category)
+        .all()
+    )
+
+    user_ids = list({r[0] for r in rows})
+    users_map = {u.id: u for u in db.query(User).filter(User.id.in_(user_ids)).all()} if user_ids else {}
+
+    members = _build_workload(rows, users_map)
+    total_items = sum(m.total_items for m in members)
+    total_points = sum(m.total_points for m in members)
+
+    return ProjectWorkloadResponse(members=members, total_items=total_items, total_points=total_points)
+
+
+@router.get(
+    "/workspaces/{ws_slug}/workload",
+    response_model=list[WorkspaceMemberWorkload],
+)
+def workspace_workload(
+    ws_slug: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get per-member workload across all projects in workspace. Requires admin role."""
+    ws = db.query(Workspace).filter_by(slug=ws_slug).first()
+    if not ws:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    get_workspace_member(ws.id, user.id, db, min_role="admin")
+
+    project_ids = [p.id for p in db.query(Project.id).filter_by(workspace_id=ws.id).all()]
+    if not project_ids:
+        return []
+
+    rows = (
+        db.query(
+            WorkItemAssignee.user_id,
+            WorkflowState.category,
+            func.count(WorkItem.id),
+            func.sum(WorkItem.story_points),
+        )
+        .join(WorkItem, WorkItemAssignee.work_item_id == WorkItem.id)
+        .join(WorkflowState, WorkItem.status_id == WorkflowState.id)
+        .filter(WorkItem.project_id.in_(project_ids), WorkItem.archived == False)
+        .group_by(WorkItemAssignee.user_id, WorkflowState.category)
+        .all()
+    )
+
+    user_ids = list({r[0] for r in rows})
+    users_map = {u.id: u for u in db.query(User).filter(User.id.in_(user_ids)).all()} if user_ids else {}
+
+    # Get project names per user
+    user_projects = defaultdict(set)
+    if user_ids:
+        proj_rows = (
+            db.query(WorkItemAssignee.user_id, Project.name)
+            .join(WorkItem, WorkItemAssignee.work_item_id == WorkItem.id)
+            .join(Project, WorkItem.project_id == Project.id)
+            .filter(WorkItem.project_id.in_(project_ids), WorkItem.archived == False)
+            .distinct()
+            .all()
+        )
+        for uid, pname in proj_rows:
+            user_projects[uid].add(pname)
+
+    member_workloads = _build_workload(rows, users_map)
+    result = []
+    for m in member_workloads:
+        result.append(WorkspaceMemberWorkload(
+            user_id=m.user_id,
+            display_name=m.display_name,
+            total_items=m.total_items,
+            total_points=m.total_points,
+            breakdown=m.breakdown,
+            projects=sorted(user_projects.get(m.user_id, [])),
+        ))
+    return result

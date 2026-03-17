@@ -3,8 +3,9 @@
 import { useEffect, useState, FormEvent, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { api } from "@/lib/api";
-import type { Workspace, Member, ActivityEvent, WorkspaceStats, WorkspaceInsights } from "@/lib/types";
+import type { Workspace, Member, ActivityEvent, WorkspaceStats, WorkspaceInsights, WorkspaceMemberWorkload } from "@/lib/types";
 import LineChart from "@/components/LineChart";
+import StackedBar from "@/components/StackedBar";
 
 interface Invite {
   id: number;
@@ -51,6 +52,7 @@ export default function WorkspaceSettingsPage() {
   // Stats
   const [stats, setStats] = useState<WorkspaceStats | null>(null);
   const [wsInsights, setWsInsights] = useState<WorkspaceInsights | null>(null);
+  const [wsWorkload, setWsWorkload] = useState<WorkspaceMemberWorkload[]>([]);
 
   useEffect(() => {
     api.get<Workspace>(`/workspaces/${wsSlug}`).then(setWorkspace);
@@ -72,6 +74,7 @@ export default function WorkspaceSettingsPage() {
     if (activeTab === "stats") {
       api.get<WorkspaceStats>(`/workspaces/${wsSlug}/stats`).then(setStats).catch((e) => console.warn("Failed to load stats:", e.message));
       api.get<WorkspaceInsights>(`/workspaces/${wsSlug}/insights`).then(setWsInsights).catch((e) => console.warn("Failed to load insights:", e.message));
+      api.get<WorkspaceMemberWorkload[]>(`/workspaces/${wsSlug}/workload`).then(setWsWorkload).catch((e) => console.warn("Failed to load workload:", e.message));
     }
   }, [activeTab, wsSlug]);
 
@@ -501,6 +504,64 @@ export default function WorkspaceSettingsPage() {
                   }))}
                   color="#6366f1"
                 />
+              </div>
+            </>
+          )}
+
+          {/* Workspace Workload */}
+          {wsWorkload.length > 0 && (
+            <>
+              <div className="h-px bg-[var(--border)] my-6" />
+              <div>
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-3">
+                  Team Workload
+                </h2>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-[11px] text-[var(--text-muted)] uppercase tracking-wider">
+                        <th className="text-left font-medium pb-2">Member</th>
+                        <th className="text-right font-medium pb-2">Items</th>
+                        <th className="text-right font-medium pb-2">Points</th>
+                        <th className="text-left font-medium pb-2 pl-4">Projects</th>
+                        <th className="font-medium pb-2 pl-4 w-1/4">Distribution</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {wsWorkload.map((m) => (
+                        <tr key={m.user_id} className="border-t border-[var(--border-subtle)]">
+                          <td className="py-2">
+                            <div className="flex items-center gap-2">
+                              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-500/80 to-violet-500/80 flex items-center justify-center text-[9px] text-white font-semibold shrink-0">
+                                {m.display_name[0].toUpperCase()}
+                              </div>
+                              {m.display_name}
+                            </div>
+                          </td>
+                          <td className="text-right py-2 tabular-nums">{m.total_items}</td>
+                          <td className="text-right py-2 tabular-nums">{m.total_points}</td>
+                          <td className="py-2 pl-4 text-xs text-[var(--text-muted)]">
+                            {m.projects.join(", ")}
+                          </td>
+                          <td className="py-2 pl-4">
+                            <StackedBar
+                              segments={[
+                                { label: "Todo", value: m.breakdown.todo_items, color: "#6b7280" },
+                                { label: "In Progress", value: m.breakdown.in_progress_items, color: "#6366f1" },
+                                { label: "Done", value: m.breakdown.done_items, color: "#10b981" },
+                              ]}
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <div className="flex items-center gap-4 mt-3 text-[11px] text-[var(--text-muted)]">
+                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: "#6b7280" }} />Todo</span>
+                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: "#6366f1" }} />In Progress</span>
+                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: "#10b981" }} />Done</span>
+                  </div>
+                </div>
               </div>
             </>
           )}

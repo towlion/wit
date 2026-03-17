@@ -340,6 +340,39 @@ export interface WorkspaceInsights {
   activity_trend: ActivityTrendPoint[];
 }
 
+// --- Workload ---
+export interface WorkloadStatusBreakdown {
+  todo_items: number;
+  todo_points: number;
+  in_progress_items: number;
+  in_progress_points: number;
+  done_items: number;
+  done_points: number;
+}
+
+export interface MemberWorkload {
+  user_id: number;
+  display_name: string;
+  total_items: number;
+  total_points: number;
+  breakdown: WorkloadStatusBreakdown;
+}
+
+export interface ProjectWorkload {
+  members: MemberWorkload[];
+  total_items: number;
+  total_points: number;
+}
+
+export interface WorkspaceMemberWorkload {
+  user_id: number;
+  display_name: string;
+  total_items: number;
+  total_points: number;
+  breakdown: WorkloadStatusBreakdown;
+  projects: string[];
+}
+
 // --- Recurrences ---
 export interface RecurrenceRule {
   id: number;

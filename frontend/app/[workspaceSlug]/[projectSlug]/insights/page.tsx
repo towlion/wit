@@ -4,9 +4,10 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { api } from "@/lib/api";
-import type { ProjectInsights } from "@/lib/types";
+import type { ProjectInsights, ProjectWorkload } from "@/lib/types";
 import BarChart from "@/components/BarChart";
 import LineChart from "@/components/LineChart";
+import StackedBar from "@/components/StackedBar";
 
 const PRIORITY_COLORS: Record<string, string> = {
   urgent: "#ef4444",
@@ -21,13 +22,14 @@ export default function ProjectInsightsPage() {
   const projectSlug = params.projectSlug as string;
   const basePath = `/workspaces/${wsSlug}/projects/${projectSlug}`;
   const [data, setData] = useState<ProjectInsights | null>(null);
+  const [workload, setWorkload] = useState<ProjectWorkload | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api
-      .get<ProjectInsights>(`${basePath}/insights`)
-      .then(setData)
-      .finally(() => setLoading(false));
+    Promise.all([
+      api.get<ProjectInsights>(`${basePath}/insights`).then(setData),
+      api.get<ProjectWorkload>(`${basePath}/workload`).then(setWorkload).catch(() => null),
+    ]).finally(() => setLoading(false));
   }, [basePath]);
 
   function handleExport() {
@@ -195,6 +197,59 @@ export default function ProjectInsightsPage() {
           </div>
         )}
       </div>
+
+      {/* Team Workload */}
+      {workload && (
+        <div className="card-surface p-4 mb-6">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-3">
+            Team Workload
+          </h2>
+          {workload.members.length === 0 ? (
+            <div className="text-center py-8 text-sm text-[var(--text-muted)]">No assigned items</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-[11px] text-[var(--text-muted)] uppercase tracking-wider">
+                    <th className="text-left font-medium pb-2">Member</th>
+                    <th className="text-right font-medium pb-2">Items</th>
+                    <th className="text-right font-medium pb-2">Points</th>
+                    <th className="font-medium pb-2 pl-4 w-1/3">Distribution</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {workload.members.map((m) => (
+                    <tr key={m.user_id} className="border-t border-[var(--border-subtle)]">
+                      <td className="py-2 flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-500/80 to-violet-500/80 flex items-center justify-center text-[9px] text-white font-semibold shrink-0">
+                          {m.display_name[0].toUpperCase()}
+                        </div>
+                        {m.display_name}
+                      </td>
+                      <td className="text-right py-2 tabular-nums">{m.total_items}</td>
+                      <td className="text-right py-2 tabular-nums">{m.total_points}</td>
+                      <td className="py-2 pl-4">
+                        <StackedBar
+                          segments={[
+                            { label: "Todo", value: m.breakdown.todo_items, color: "#6b7280" },
+                            { label: "In Progress", value: m.breakdown.in_progress_items, color: "#6366f1" },
+                            { label: "Done", value: m.breakdown.done_items, color: "#10b981" },
+                          ]}
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div className="flex items-center gap-4 mt-3 text-[11px] text-[var(--text-muted)]">
+                <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: "#6b7280" }} />Todo</span>
+                <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: "#6366f1" }} />In Progress</span>
+                <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: "#10b981" }} />Done</span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Recently completed */}
       <div className="card-surface p-4">

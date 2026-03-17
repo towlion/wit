@@ -761,6 +761,43 @@ class WorkspaceInsightsResponse(BaseModel):
     activity_trend: list[ActivityTrendPoint]
 
 
+# --- Workload ---
+class WorkloadStatusBreakdown(BaseModel):
+    """Per-status-category counts for a member."""
+    todo_items: int = 0
+    todo_points: int = 0
+    in_progress_items: int = 0
+    in_progress_points: int = 0
+    done_items: int = 0
+    done_points: int = 0
+
+
+class MemberWorkload(BaseModel):
+    """Per-member workload summary."""
+    user_id: int
+    display_name: str
+    total_items: int
+    total_points: int
+    breakdown: WorkloadStatusBreakdown
+
+
+class ProjectWorkloadResponse(BaseModel):
+    """Project-level team workload."""
+    members: list[MemberWorkload]
+    total_items: int
+    total_points: int
+
+
+class WorkspaceMemberWorkload(BaseModel):
+    """Workspace-level per-member workload across all projects."""
+    user_id: int
+    display_name: str
+    total_items: int
+    total_points: int
+    breakdown: WorkloadStatusBreakdown
+    projects: list[str]
+
+
 # --- Saved Views ---
 class SavedViewCreate(BaseModel):
     """Save a filter view."""
