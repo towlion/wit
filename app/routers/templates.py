@@ -39,6 +39,7 @@ def list_templates(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """List item templates for a project."""
     project = _resolve_project(ws_slug, project_slug, user, db)
     return db.query(ItemTemplate).filter_by(project_id=project.id).order_by(ItemTemplate.name).all()
 
@@ -55,6 +56,7 @@ def create_template(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Create an item template with default values for new items."""
     project = _resolve_project(ws_slug, project_slug, user, db)
     tmpl = ItemTemplate(
         project_id=project.id,
@@ -82,6 +84,7 @@ def update_template(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Update an item template."""
     project = _resolve_project(ws_slug, project_slug, user, db)
     tmpl = db.query(ItemTemplate).filter_by(id=template_id, project_id=project.id).first()
     if not tmpl:
@@ -106,6 +109,7 @@ def delete_template(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Delete an item template."""
     project = _resolve_project(ws_slug, project_slug, user, db)
     tmpl = db.query(ItemTemplate).filter_by(id=template_id, project_id=project.id).first()
     if not tmpl:
@@ -126,6 +130,7 @@ def list_automations(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """List automation rules for a project."""
     project = _resolve_project(ws_slug, project_slug, user, db)
     return db.query(AutomationRule).filter_by(project_id=project.id).order_by(AutomationRule.id).all()
 
@@ -142,6 +147,7 @@ def create_automation(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Create an automation rule. Requires admin role."""
     project = _resolve_project(ws_slug, project_slug, user, db, min_role="admin")
     rule = AutomationRule(
         project_id=project.id,
@@ -170,6 +176,7 @@ def update_automation(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Update an automation rule. Requires admin role."""
     project = _resolve_project(ws_slug, project_slug, user, db, min_role="admin")
     rule = db.query(AutomationRule).filter_by(id=rule_id, project_id=project.id).first()
     if not rule:
@@ -194,6 +201,7 @@ def delete_automation(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Delete an automation rule. Requires admin role."""
     project = _resolve_project(ws_slug, project_slug, user, db, min_role="admin")
     rule = db.query(AutomationRule).filter_by(id=rule_id, project_id=project.id).first()
     if not rule:

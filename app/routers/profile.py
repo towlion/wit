@@ -16,6 +16,12 @@ def update_profile(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Update the current user's profile.
+
+    Supports partial updates — only provided fields are changed.
+
+    - **400**: Invalid theme or digest mode value
+    """
     if body.display_name is not None:
         user.display_name = body.display_name
     if body.theme is not None:
@@ -39,6 +45,10 @@ def change_password(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Change the current user's password.
+
+    - **400**: Current password incorrect or new password too short
+    """
     if not verify_password(body.current_password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Current password is incorrect")
     if len(body.new_password) < 8:

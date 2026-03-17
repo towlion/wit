@@ -38,6 +38,7 @@ def list_fields(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """List custom field definitions for a project."""
     project = _resolve_project(ws_slug, project_slug, user, db)
     return (
         db.query(CustomFieldDefinition)
@@ -59,6 +60,10 @@ def create_field(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Create a custom field definition. Requires admin role.
+
+    - **409**: Field name already exists
+    """
     project = _resolve_project(ws_slug, project_slug, user, db)
     ws = db.query(Workspace).filter_by(slug=ws_slug).first()
     get_workspace_member(ws.id, user.id, db, min_role="admin")
@@ -93,6 +98,7 @@ def update_field(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Update a custom field definition. Requires admin role."""
     project = _resolve_project(ws_slug, project_slug, user, db)
     ws = db.query(Workspace).filter_by(slug=ws_slug).first()
     get_workspace_member(ws.id, user.id, db, min_role="admin")
@@ -120,6 +126,7 @@ def delete_field(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Delete a custom field definition and all its values. Requires admin role."""
     project = _resolve_project(ws_slug, project_slug, user, db)
     ws = db.query(Workspace).filter_by(slug=ws_slug).first()
     get_workspace_member(ws.id, user.id, db, min_role="admin")
@@ -144,6 +151,7 @@ def get_item_fields(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Get custom field values for a work item."""
     project = _resolve_project(ws_slug, project_slug, user, db)
     item = db.query(WorkItem).filter_by(project_id=project.id, item_number=item_number).first()
     if not item:
@@ -164,6 +172,7 @@ def set_field_value(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Set a custom field value on a work item (upsert)."""
     project = _resolve_project(ws_slug, project_slug, user, db)
     item = db.query(WorkItem).filter_by(project_id=project.id, item_number=item_number).first()
     if not item:
@@ -197,6 +206,7 @@ def clear_field_value(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Clear a custom field value from a work item."""
     project = _resolve_project(ws_slug, project_slug, user, db)
     item = db.query(WorkItem).filter_by(project_id=project.id, item_number=item_number).first()
     if not item:

@@ -19,6 +19,7 @@ def search_members(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Search workspace members by display name prefix. Used for @mention autocomplete."""
     ws = db.query(Workspace).filter_by(slug=ws_slug).first()
     if not ws:
         raise HTTPException(status_code=404, detail="Workspace not found")

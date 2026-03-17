@@ -18,6 +18,10 @@ def create_token(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Create a personal API token.
+
+    The full token value is only returned once in the response.
+    """
     raw, token_hash = generate_api_token()
     expires_at = None
     if body.expires_in_days is not None:
@@ -49,6 +53,7 @@ def list_tokens(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """List the current user's API tokens (token values are not included)."""
     tokens = (
         db.query(ApiToken)
         .filter_by(user_id=user.id)
@@ -64,6 +69,7 @@ def revoke_token(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Revoke an API token."""
     api_token = db.query(ApiToken).filter_by(id=token_id, user_id=user.id).first()
     if api_token is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Token not found")

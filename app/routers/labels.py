@@ -30,6 +30,7 @@ def list_labels(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """List all labels in a project."""
     project = _resolve_project(ws_slug, project_slug, user, db)
     return db.query(Label).filter_by(project_id=project.id).all()
 
@@ -46,6 +47,10 @@ def create_label(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Create a label.
+
+    - **409**: Label name already exists in this project
+    """
     project = _resolve_project(ws_slug, project_slug, user, db)
     if db.query(Label).filter_by(project_id=project.id, name=body.name).first():
         raise HTTPException(status_code=409, detail="Label name already exists")
@@ -68,6 +73,7 @@ def update_label(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Update a label's name or color."""
     project = _resolve_project(ws_slug, project_slug, user, db)
     label = db.query(Label).filter_by(id=label_id, project_id=project.id).first()
     if not label:
@@ -92,6 +98,7 @@ def delete_label(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Delete a label."""
     project = _resolve_project(ws_slug, project_slug, user, db)
     label = db.query(Label).filter_by(id=label_id, project_id=project.id).first()
     if not label:

@@ -34,6 +34,7 @@ def list_activity(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """List activity events for a work item (newest first)."""
     item = _resolve_item(ws_slug, project_slug, item_number, user, db)
     return (
         db.query(ActivityEvent)
@@ -58,6 +59,10 @@ def create_comment(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Add a comment to a work item.
+
+    Auto-watches the commenter and processes @mentions.
+    """
     item = _resolve_item(ws_slug, project_slug, item_number, user, db)
     event = record_activity(db, item.id, user.id, "comment", body=body.body)
 
@@ -118,6 +123,10 @@ def update_comment(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Edit a comment. Only the author can edit.
+
+    - **403**: Can only edit own comments
+    """
     item = _resolve_item(ws_slug, project_slug, item_number, user, db)
     event = db.query(ActivityEvent).filter_by(id=comment_id, work_item_id=item.id, event_type="comment").first()
     if not event:
@@ -142,6 +151,10 @@ def delete_comment(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Delete a comment. Only the author can delete.
+
+    - **403**: Can only delete own comments
+    """
     item = _resolve_item(ws_slug, project_slug, item_number, user, db)
     event = db.query(ActivityEvent).filter_by(id=comment_id, work_item_id=item.id, event_type="comment").first()
     if not event:

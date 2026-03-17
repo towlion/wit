@@ -29,7 +29,34 @@ logging.root.setLevel(logging.INFO)
 logger = logging.getLogger(__name__)
 
 limiter = Limiter(key_func=get_remote_address, default_limits=["60/minute"])
-app = FastAPI(title="WIT - Work Item Tracker")
+app = FastAPI(
+    title="WIT - Work Item Tracker",
+    version="1.0.0",
+    description="Work Item Tracker API. Authenticate via `Authorization: Bearer <token>`.",
+    openapi_tags=[
+        {"name": "auth", "description": "Registration, login, and token management."},
+        {"name": "profile", "description": "User profile and password management."},
+        {"name": "workspaces", "description": "Workspace CRUD, members, bulk ops, cross-project views."},
+        {"name": "projects", "description": "Project CRUD and board settings."},
+        {"name": "work_items", "description": "Work item CRUD, assignees, labels, dependencies, subtasks."},
+        {"name": "labels", "description": "Project-scoped label management."},
+        {"name": "states", "description": "Workflow state management."},
+        {"name": "activity", "description": "Activity feed and comments."},
+        {"name": "search", "description": "Full-text search via PostgreSQL tsvector."},
+        {"name": "custom_fields", "description": "Custom field definitions and values."},
+        {"name": "attachments", "description": "File uploads and downloads (max 10 MB)."},
+        {"name": "invites", "description": "Workspace invitation links."},
+        {"name": "notifications", "description": "Notification feed and read management."},
+        {"name": "webhooks", "description": "Webhook configuration for event delivery."},
+        {"name": "api-tokens", "description": "API token creation and revocation."},
+        {"name": "templates", "description": "Item templates and automation rules."},
+        {"name": "insights", "description": "Analytics, burndown, cycle time, CSV export."},
+        {"name": "admin", "description": "System administration (superuser only)."},
+        {"name": "watchers", "description": "Watch/unwatch items for notifications."},
+        {"name": "members", "description": "Search workspace members."},
+        {"name": "saved_views", "description": "Saved filter views."},
+    ],
+)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
@@ -86,6 +113,10 @@ app.include_router(saved_views.router, prefix="/api")
 @app.get("/health")
 @limiter.exempt
 def health(request: Request):
+    """Health check.
+
+    Returns `{"status": "ok"}` when the service is running.
+    """
     return {"status": "ok"}
 
 

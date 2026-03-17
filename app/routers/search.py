@@ -22,6 +22,10 @@ def search_items(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Full-text search over work items using PostgreSQL tsvector.
+
+    Returns ranked results with highlighted snippets.
+    """
     ws = db.query(Workspace).filter_by(slug=ws_slug).first()
     if not ws:
         raise HTTPException(status_code=404, detail="Workspace not found")

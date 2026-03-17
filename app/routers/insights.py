@@ -65,6 +65,7 @@ def project_insights(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Get project analytics: status/priority distribution, burndown, cycle time, member breakdown."""
     _, project = _resolve_project(ws_slug, project_slug, user, db)
 
     # Status distribution
@@ -306,6 +307,7 @@ def export_csv(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Export project work items as a CSV file."""
     _, project = _resolve_project(ws_slug, project_slug, user, db)
 
     items = (
@@ -362,6 +364,10 @@ def workspace_insights(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Get workspace-level analytics: project summaries, active members, activity trend.
+
+    Requires admin role.
+    """
     ws = db.query(Workspace).filter_by(slug=ws_slug).first()
     if not ws:
         raise HTTPException(status_code=404, detail="Workspace not found")

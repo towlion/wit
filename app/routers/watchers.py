@@ -30,6 +30,7 @@ def get_watch_status(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Check if the current user is watching a work item."""
     item = _resolve_item(ws_slug, project_slug, item_number, user, db)
     return _watch_response(db, item.id, user.id)
 
@@ -42,6 +43,7 @@ def watch_item(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Watch a work item to receive notifications on changes."""
     item = _resolve_item(ws_slug, project_slug, item_number, user, db)
     existing = db.query(ItemWatcher).filter_by(work_item_id=item.id, user_id=user.id).first()
     if not existing:
@@ -58,6 +60,7 @@ def unwatch_item(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Stop watching a work item."""
     item = _resolve_item(ws_slug, project_slug, item_number, user, db)
     existing = db.query(ItemWatcher).filter_by(work_item_id=item.id, user_id=user.id).first()
     if existing:

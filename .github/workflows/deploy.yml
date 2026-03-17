@@ -21,6 +21,15 @@ jobs:
             handle /health {
                 reverse_proxy __APP_NAME__-app-1:8000
             }
+            handle /docs {
+                reverse_proxy __APP_NAME__-app-1:8000
+            }
+            handle /redoc {
+                reverse_proxy __APP_NAME__-app-1:8000
+            }
+            handle /openapi.json {
+                reverse_proxy __APP_NAME__-app-1:8000
+            }
             handle {
                 reverse_proxy __APP_NAME__-frontend-1:3000
             }

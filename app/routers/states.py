@@ -30,6 +30,7 @@ def list_states(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """List workflow states for a project, ordered by position."""
     project = _resolve_project(ws_slug, project_slug, user, db)
     return (
         db.query(WorkflowState)
@@ -51,6 +52,7 @@ def create_state(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Create a workflow state."""
     project = _resolve_project(ws_slug, project_slug, user, db)
     state = WorkflowState(
         project_id=project.id,
@@ -77,6 +79,7 @@ def update_state(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Update a workflow state."""
     project = _resolve_project(ws_slug, project_slug, user, db)
     state = db.query(WorkflowState).filter_by(id=state_id, project_id=project.id).first()
     if not state:
@@ -101,6 +104,7 @@ def delete_state(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Delete a workflow state."""
     project = _resolve_project(ws_slug, project_slug, user, db)
     state = db.query(WorkflowState).filter_by(id=state_id, project_id=project.id).first()
     if not state:

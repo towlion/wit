@@ -61,6 +61,7 @@ def _workspace_response(ws: Workspace, db: Session) -> WorkspaceResponse:
 
 @router.get("", response_model=list[WorkspaceListItem])
 def list_workspaces(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """List workspaces the current user belongs to."""
     rows = (
         db.query(Workspace, WorkspaceMember.role)
         .join(WorkspaceMember, WorkspaceMember.workspace_id == Workspace.id)
@@ -81,6 +82,12 @@ def create_workspace(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Create a new workspace.
+
+    The creator is automatically added as owner.
+
+    - **409**: Slug already taken
+    """
     if db.query(Workspace).filter_by(slug=body.slug).first():
         raise HTTPException(status_code=409, detail="Slug already taken")
     ws = Workspace(name=body.name, slug=body.slug)
@@ -98,6 +105,7 @@ def get_workspace(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Get workspace details including members."""
     ws = db.query(Workspace).filter_by(slug=slug).first()
     if not ws:
         raise HTTPException(status_code=404, detail="Workspace not found")
@@ -112,6 +120,7 @@ def update_workspace(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Update workspace properties. Requires admin role."""
     ws = db.query(Workspace).filter_by(slug=slug).first()
     if not ws:
         raise HTTPException(status_code=404, detail="Workspace not found")
@@ -129,6 +138,7 @@ def delete_workspace(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Delete a workspace. Requires owner role."""
     ws = db.query(Workspace).filter_by(slug=slug).first()
     if not ws:
         raise HTTPException(status_code=404, detail="Workspace not found")
@@ -145,6 +155,11 @@ def add_member(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Add a member to the workspace by email. Requires admin role.
+
+    - **404**: User not found
+    - **409**: Already a member
+    """
     ws = db.query(Workspace).filter_by(slug=slug).first()
     if not ws:
         raise HTTPException(status_code=404, detail="Workspace not found")
@@ -174,6 +189,7 @@ def update_member(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Update a member's role. Requires admin role."""
     ws = db.query(Workspace).filter_by(slug=slug).first()
     if not ws:
         raise HTTPException(status_code=404, detail="Workspace not found")
@@ -197,6 +213,10 @@ def remove_member(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Remove a member from the workspace. Requires admin role.
+
+    - **400**: Cannot remove workspace owner
+    """
     ws = db.query(Workspace).filter_by(slug=slug).first()
     if not ws:
         raise HTTPException(status_code=404, detail="Workspace not found")
@@ -221,6 +241,7 @@ def workspace_audit_log(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """List workspace activity audit log. Requires admin role."""
     ws = db.query(Workspace).filter_by(slug=slug).first()
     if not ws:
         raise HTTPException(status_code=404, detail="Workspace not found")
@@ -272,6 +293,7 @@ def workspace_stats(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Get workspace usage statistics. Requires admin role."""
     ws = db.query(Workspace).filter_by(slug=slug).first()
     if not ws:
         raise HTTPException(status_code=404, detail="Workspace not found")
@@ -345,6 +367,7 @@ def bulk_archive(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Archive multiple items at once. Requires admin role."""
     ws = db.query(Workspace).filter_by(slug=slug).first()
     if not ws:
         raise HTTPException(status_code=404, detail="Workspace not found")
@@ -380,6 +403,7 @@ def bulk_reassign(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Reassign multiple items to a user. Requires admin role."""
     ws = db.query(Workspace).filter_by(slug=slug).first()
     if not ws:
         raise HTTPException(status_code=404, detail="Workspace not found")
@@ -427,6 +451,7 @@ def bulk_labels(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Add or remove a label from multiple items. Requires admin role."""
     ws = db.query(Workspace).filter_by(slug=slug).first()
     if not ws:
         raise HTTPException(status_code=404, detail="Workspace not found")
@@ -485,6 +510,10 @@ def cross_project_items(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """List items across all projects in the workspace.
+
+    Supports filtering by status category and priority.
+    """
     ws = db.query(Workspace).filter_by(slug=slug).first()
     if not ws:
         raise HTTPException(status_code=404, detail="Workspace not found")

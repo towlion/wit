@@ -30,6 +30,7 @@ def list_views(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """List the current user's saved filter views for a project."""
     project = _resolve_project(ws_slug, project_slug, user, db)
     return (
         db.query(SavedView)
@@ -51,6 +52,10 @@ def create_view(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Save a filter view.
+
+    - **409**: View name already exists
+    """
     project = _resolve_project(ws_slug, project_slug, user, db)
     existing = (
         db.query(SavedView)
@@ -82,6 +87,7 @@ def delete_view(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Delete a saved filter view."""
     project = _resolve_project(ws_slug, project_slug, user, db)
     view = (
         db.query(SavedView)

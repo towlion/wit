@@ -38,6 +38,7 @@ def list_attachments(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """List file attachments on a work item."""
     item = _resolve_item(ws_slug, project_slug, item_number, user, db)
     return db.query(Attachment).filter_by(work_item_id=item.id).order_by(Attachment.created_at.desc()).all()
 
@@ -55,6 +56,10 @@ async def upload_attachment(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Upload a file attachment (max 10 MB).
+
+    - **413**: File too large
+    """
     item = _resolve_item(ws_slug, project_slug, item_number, user, db)
 
     data = await file.read()
@@ -90,6 +95,7 @@ def download_attachment(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Download a file attachment. Redirects to a pre-signed S3 URL."""
     item = _resolve_item(ws_slug, project_slug, item_number, user, db)
     att = db.query(Attachment).filter_by(id=attachment_id, work_item_id=item.id).first()
     if not att:
@@ -110,6 +116,10 @@ def delete_attachment(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Delete a file attachment. Only the uploader can delete.
+
+    - **403**: Can only delete own attachments
+    """
     item = _resolve_item(ws_slug, project_slug, item_number, user, db)
     att = db.query(Attachment).filter_by(id=attachment_id, work_item_id=item.id).first()
     if not att:

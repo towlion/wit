@@ -23,6 +23,7 @@ def create_invite(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Create an invitation link. Requires admin role."""
     ws = db.query(Workspace).filter_by(slug=ws_slug).first()
     if not ws:
         raise HTTPException(status_code=404, detail="Workspace not found")
@@ -55,6 +56,7 @@ def list_invites(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """List workspace invitations. Requires admin role."""
     ws = db.query(Workspace).filter_by(slug=ws_slug).first()
     if not ws:
         raise HTTPException(status_code=404, detail="Workspace not found")
@@ -72,6 +74,7 @@ def revoke_invite(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Revoke an invitation. Requires admin role."""
     ws = db.query(Workspace).filter_by(slug=ws_slug).first()
     if not ws:
         raise HTTPException(status_code=404, detail="Workspace not found")
@@ -93,6 +96,10 @@ def get_invite_info(
     token: str,
     db: Session = Depends(get_db),
 ):
+    """Get invite details (no auth required).
+
+    - **410**: Invite expired or max uses reached
+    """
     invite = db.query(WorkspaceInvite).filter_by(token=token).first()
     if not invite:
         raise HTTPException(status_code=404, detail="Invite not found or expired")
@@ -113,6 +120,11 @@ def accept_invite(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Accept an invitation and join the workspace.
+
+    - **409**: Already a member
+    - **410**: Invite expired or max uses reached
+    """
     invite = db.query(WorkspaceInvite).filter_by(token=token).first()
     if not invite:
         raise HTTPException(status_code=404, detail="Invite not found")

@@ -42,6 +42,7 @@ def list_projects(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """List all projects in a workspace."""
     ws = _get_workspace(ws_slug, user, db)
     return db.query(Project).filter_by(workspace_id=ws.id).all()
 
@@ -57,6 +58,10 @@ def create_project(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Create a new project with workflow states from the selected template.
+
+    - **409**: Project slug already exists
+    """
     ws = _get_workspace(ws_slug, user, db, min_role="member")
 
     if db.query(Project).filter_by(workspace_id=ws.id, slug=body.slug).first():
@@ -90,6 +95,7 @@ def get_project(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Get project details."""
     ws = _get_workspace(ws_slug, user, db)
     project = db.query(Project).filter_by(workspace_id=ws.id, slug=project_slug).first()
     if not project:
@@ -105,6 +111,7 @@ def update_project(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Update project properties including board settings."""
     ws = _get_workspace(ws_slug, user, db, min_role="member")
     project = db.query(Project).filter_by(workspace_id=ws.id, slug=project_slug).first()
     if not project:
@@ -130,6 +137,7 @@ def delete_project(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Delete a project and all its data. Requires admin role."""
     ws = _get_workspace(ws_slug, user, db, min_role="admin")
     project = db.query(Project).filter_by(workspace_id=ws.id, slug=project_slug).first()
     if not project:

@@ -18,6 +18,7 @@ def list_webhooks(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """List webhook configurations. Requires admin role."""
     ws = db.query(Workspace).filter_by(slug=ws_slug).first()
     if not ws:
         raise HTTPException(status_code=404, detail="Workspace not found")
@@ -36,6 +37,7 @@ def create_webhook(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Create a webhook configuration. Requires admin role."""
     ws = db.query(Workspace).filter_by(slug=ws_slug).first()
     if not ws:
         raise HTTPException(status_code=404, detail="Workspace not found")
@@ -64,6 +66,7 @@ def update_webhook(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Update a webhook configuration. Requires admin role."""
     ws = db.query(Workspace).filter_by(slug=ws_slug).first()
     if not ws:
         raise HTTPException(status_code=404, detail="Workspace not found")
@@ -91,6 +94,7 @@ def delete_webhook(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Delete a webhook configuration. Requires admin role."""
     ws = db.query(Workspace).filter_by(slug=ws_slug).first()
     if not ws:
         raise HTTPException(status_code=404, detail="Workspace not found")

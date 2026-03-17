@@ -17,6 +17,7 @@ def list_notifications(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """List notifications for the current user. Filter by read status."""
     q = db.query(Notification).filter_by(user_id=user.id)
     if read is not None:
         q = q.filter_by(read=read)
@@ -28,6 +29,7 @@ def unread_count(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Get the count of unread notifications."""
     count = db.query(Notification).filter_by(user_id=user.id, read=False).count()
     return {"count": count}
 
@@ -38,6 +40,7 @@ def mark_read(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Mark a single notification as read."""
     n = db.query(Notification).filter_by(id=notification_id, user_id=user.id).first()
     if n:
         n.read = True
@@ -50,6 +53,7 @@ def mark_all_read(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Mark all notifications as read."""
     db.query(Notification).filter_by(user_id=user.id, read=False).update({"read": True})
     db.commit()
     return {"ok": True}

@@ -84,6 +84,10 @@ def list_items(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """List non-archived work items in a project.
+
+    Supports filtering by due date range and overdue status.
+    """
     project = _resolve_project(ws_slug, project_slug, user, db)
     q = db.query(WorkItem).filter_by(project_id=project.id, archived=False)
     if overdue:
@@ -108,6 +112,10 @@ def create_item(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Create a new work item.
+
+    Assigns an auto-incrementing item number and defaults to the first workflow state.
+    """
     project = _resolve_project(ws_slug, project_slug, user, db)
 
     # Atomically increment item_counter
@@ -149,6 +157,7 @@ def get_item(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Get a work item by number, including dependencies and subtask summary."""
     project = _resolve_project(ws_slug, project_slug, user, db)
     item = db.query(WorkItem).filter_by(project_id=project.id, item_number=item_number).first()
     if not item:
@@ -168,6 +177,10 @@ def update_item(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Update a work item. Records activity for status and priority changes.
+
+    Triggers automation rules on status changes.
+    """
     project = _resolve_project(ws_slug, project_slug, user, db)
     item = db.query(WorkItem).filter_by(project_id=project.id, item_number=item_number).first()
     if not item:
@@ -219,6 +232,7 @@ def delete_item(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Permanently delete a work item."""
     project = _resolve_project(ws_slug, project_slug, user, db)
     item = db.query(WorkItem).filter_by(project_id=project.id, item_number=item_number).first()
     if not item:
@@ -242,6 +256,10 @@ def add_assignee(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Assign a user to a work item.
+
+    - **409**: Already assigned
+    """
     project = _resolve_project(ws_slug, project_slug, user, db)
     item = db.query(WorkItem).filter_by(project_id=project.id, item_number=item_number).first()
     if not item:
@@ -271,6 +289,7 @@ def remove_assignee(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Remove a user's assignment from a work item."""
     project = _resolve_project(ws_slug, project_slug, user, db)
     item = db.query(WorkItem).filter_by(project_id=project.id, item_number=item_number).first()
     if not item:
@@ -301,6 +320,10 @@ def add_item_label(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Apply a label to a work item.
+
+    - **409**: Label already applied
+    """
     project = _resolve_project(ws_slug, project_slug, user, db)
     item = db.query(WorkItem).filter_by(project_id=project.id, item_number=item_number).first()
     if not item:
@@ -332,6 +355,7 @@ def remove_item_label(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Remove a label from a work item."""
     project = _resolve_project(ws_slug, project_slug, user, db)
     item = db.query(WorkItem).filter_by(project_id=project.id, item_number=item_number).first()
     if not item:
@@ -361,6 +385,7 @@ def list_dependencies(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Get dependency graph for a work item (blocks and blocked-by)."""
     project = _resolve_project(ws_slug, project_slug, user, db)
     item = db.query(WorkItem).filter_by(project_id=project.id, item_number=item_number).first()
     if not item:
@@ -400,6 +425,11 @@ def add_dependency(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Add a dependency (this item blocks another).
+
+    - **400**: Self-dependency
+    - **409**: Already exists or would create a cycle
+    """
     project = _resolve_project(ws_slug, project_slug, user, db)
     item = db.query(WorkItem).filter_by(project_id=project.id, item_number=item_number).first()
     if not item:
@@ -435,6 +465,7 @@ def remove_dependency(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Remove a dependency between two items (either direction)."""
     project = _resolve_project(ws_slug, project_slug, user, db)
     item = db.query(WorkItem).filter_by(project_id=project.id, item_number=item_number).first()
     if not item:
@@ -466,6 +497,7 @@ def list_subtasks(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """List subtasks for a work item, ordered by position."""
     project = _resolve_project(ws_slug, project_slug, user, db)
     item = db.query(WorkItem).filter_by(project_id=project.id, item_number=item_number).first()
     if not item:
@@ -486,6 +518,7 @@ def create_subtask(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Create a subtask / checklist item. Auto-positioned at the end."""
     project = _resolve_project(ws_slug, project_slug, user, db)
     item = db.query(WorkItem).filter_by(project_id=project.id, item_number=item_number).first()
     if not item:
@@ -518,6 +551,7 @@ def update_subtask(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Update a subtask's title, position, or completion status."""
     project = _resolve_project(ws_slug, project_slug, user, db)
     item = db.query(WorkItem).filter_by(project_id=project.id, item_number=item_number).first()
     if not item:
@@ -551,6 +585,7 @@ def delete_subtask(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Delete a subtask."""
     project = _resolve_project(ws_slug, project_slug, user, db)
     item = db.query(WorkItem).filter_by(project_id=project.id, item_number=item_number).first()
     if not item:

@@ -32,6 +32,7 @@ def admin_dashboard(
     user: User = Depends(require_superuser),
     db: Session = Depends(get_db),
 ):
+    """Get system-wide statistics. Superuser only."""
     week_ago = datetime.now(timezone.utc) - timedelta(days=7)
     total_users = db.query(func.count(User.id)).scalar() or 0
     active_users = db.query(func.count(User.id)).filter(User.is_active == True).scalar() or 0
@@ -57,6 +58,7 @@ def admin_list_users(
     user: User = Depends(require_superuser),
     db: Session = Depends(get_db),
 ):
+    """List all users with optional search. Superuser only."""
     q = db.query(User)
     if search:
         pattern = f"%{search}%"
@@ -91,6 +93,10 @@ def admin_update_user(
     user: User = Depends(require_superuser),
     db: Session = Depends(get_db),
 ):
+    """Update a user's active/superuser status. Superuser only.
+
+    - **400**: Cannot deactivate yourself
+    """
     target = db.get(User, user_id)
     if not target:
         raise HTTPException(status_code=404, detail="User not found")
@@ -148,6 +154,7 @@ def admin_list_workspaces(
     user: User = Depends(require_superuser),
     db: Session = Depends(get_db),
 ):
+    """List all workspaces with optional search. Superuser only."""
     q = db.query(Workspace)
     if search:
         pattern = f"%{search}%"
@@ -194,6 +201,7 @@ def admin_workspace_members(
     user: User = Depends(require_superuser),
     db: Session = Depends(get_db),
 ):
+    """List members of any workspace. Superuser only."""
     ws = db.get(Workspace, workspace_id)
     if not ws:
         raise HTTPException(status_code=404, detail="Workspace not found")
@@ -215,6 +223,7 @@ def admin_delete_workspace(
     user: User = Depends(require_superuser),
     db: Session = Depends(get_db),
 ):
+    """Delete any workspace. Superuser only. Logged to audit trail."""
     ws = db.get(Workspace, workspace_id)
     if not ws:
         raise HTTPException(status_code=404, detail="Workspace not found")
@@ -240,6 +249,10 @@ def admin_audit_log(
     user: User = Depends(require_superuser),
     db: Session = Depends(get_db),
 ):
+    """List admin audit log entries. Superuser only.
+
+    Filter by entity_type and/or action.
+    """
     q = db.query(AdminAuditLog)
     if entity_type:
         q = q.filter(AdminAuditLog.entity_type == entity_type)
