@@ -11,7 +11,7 @@ import {
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
-import type { WorkflowState, WorkItem, BoardSettings, CardDisplaySettings } from "@/lib/types";
+import type { WorkflowState, WorkItem, BoardSettings, CardDisplaySettings, ItemTemplate } from "@/lib/types";
 import Column from "./Column";
 import Card from "./Card";
 import CardDetail from "./CardDetail";
@@ -27,6 +27,8 @@ interface BoardProps {
   selectedIds?: Set<number>;
   onToggleSelect?: (id: number) => void;
   boardSettings?: BoardSettings | null;
+  templates?: ItemTemplate[];
+  onItemCreateFromTemplate?: (statusId: number, template: ItemTemplate) => Promise<void>;
 }
 
 function generatePosition(before: string | null, after: string | null): string {
@@ -120,6 +122,8 @@ export default function Board({
   selectedIds,
   onToggleSelect,
   boardSettings,
+  templates,
+  onItemCreateFromTemplate,
 }: BoardProps) {
   const [activeId, setActiveId] = useState<number | null>(null);
   const [selectedItem, setSelectedItem] = useState<WorkItem | null>(null);
@@ -224,6 +228,8 @@ export default function Board({
                         onToggleSelect={onToggleSelect}
                         wipLimit={wipLimits[String(state.id)]}
                         cardDisplay={cardDisplay}
+                        templates={templates}
+                        onItemCreateFromTemplate={onItemCreateFromTemplate}
                       />
                     );
                   })}
@@ -241,12 +247,14 @@ export default function Board({
                   state={state}
                   items={columnItems}
                   onItemCreate={onItemCreate}
+                  onItemCreateFromTemplate={onItemCreateFromTemplate}
                   onCardClick={setSelectedItem}
                   selectable={selectable}
                   selectedIds={selectedIds}
                   onToggleSelect={onToggleSelect}
                   wipLimit={wipLimits[String(state.id)]}
                   cardDisplay={cardDisplay}
+                  templates={templates}
                 />
               );
             })

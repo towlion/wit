@@ -180,6 +180,30 @@ export interface BulkOperationResult {
   affected: number;
 }
 
+// --- Templates & Automation ---
+export interface ItemTemplate {
+  id: number;
+  project_id: number;
+  name: string;
+  title_template: string;
+  description_template: string | null;
+  priority: string;
+  label_ids: number[] | null;
+  created_at: string;
+}
+
+export interface AutomationRule {
+  id: number;
+  project_id: number;
+  name: string;
+  trigger: string;
+  trigger_state_id: number | null;
+  action: string;
+  action_config: Record<string, unknown>;
+  enabled: boolean;
+  created_at: string;
+}
+
 // --- Insights ---
 export interface StatusDistributionItem {
   state_id: number;

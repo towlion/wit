@@ -359,6 +359,50 @@ class AdminAuditLog(Base):
     actor: Mapped["User | None"] = relationship()
 
 
+class ItemTemplate(Base):
+    __tablename__ = "item_templates"
+    __table_args__ = (
+        UniqueConstraint("project_id", "name"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    title_template: Mapped[str] = mapped_column(String(500), nullable=False, default="")
+    description_template: Mapped[str | None] = mapped_column(Text, nullable=True)
+    priority: Mapped[str] = mapped_column(String(50), nullable=False, default="medium")
+    label_ids: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    project: Mapped["Project"] = relationship()
+
+
+class AutomationRule(Base):
+    __tablename__ = "automation_rules"
+    __table_args__ = (
+        Index("ix_automation_rules_project_trigger", "project_id", "trigger"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    trigger: Mapped[str] = mapped_column(String(50), nullable=False)
+    trigger_state_id: Mapped[int | None] = mapped_column(
+        ForeignKey("workflow_states.id", ondelete="CASCADE"), nullable=True
+    )
+    action: Mapped[str] = mapped_column(String(50), nullable=False)
+    action_config: Mapped[dict] = mapped_column(JSON, nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    project: Mapped["Project"] = relationship()
+    trigger_state: Mapped["WorkflowState | None"] = relationship()
+
+
 class WebhookConfig(Base):
     __tablename__ = "webhook_configs"
 

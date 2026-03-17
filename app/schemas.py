@@ -482,6 +482,69 @@ class BulkOperationResponse(BaseModel):
     affected: int
 
 
+# --- Item Templates ---
+class ItemTemplateCreate(BaseModel):
+    name: str
+    title_template: str = ""
+    description_template: str | None = None
+    priority: str = "medium"
+    label_ids: list[int] | None = None
+
+
+class ItemTemplateUpdate(BaseModel):
+    name: str | None = None
+    title_template: str | None = None
+    description_template: str | None = None
+    priority: str | None = None
+    label_ids: list[int] | None = None
+
+
+class ItemTemplateResponse(BaseModel):
+    id: int
+    project_id: int
+    name: str
+    title_template: str
+    description_template: str | None
+    priority: str
+    label_ids: list[int] | None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+# --- Automation Rules ---
+class AutomationRuleCreate(BaseModel):
+    name: str
+    trigger: str
+    trigger_state_id: int | None = None
+    action: str
+    action_config: dict
+    enabled: bool = True
+
+
+class AutomationRuleUpdate(BaseModel):
+    name: str | None = None
+    trigger: str | None = None
+    trigger_state_id: int | None = None
+    action: str | None = None
+    action_config: dict | None = None
+    enabled: bool | None = None
+
+
+class AutomationRuleResponse(BaseModel):
+    id: int
+    project_id: int
+    name: str
+    trigger: str
+    trigger_state_id: int | None
+    action: str
+    action_config: dict
+    enabled: bool
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
 # --- Insights ---
 class StatusDistributionItem(BaseModel):
     state_id: int

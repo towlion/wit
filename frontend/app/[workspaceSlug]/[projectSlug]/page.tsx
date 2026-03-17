@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams } from "next/navigation";
 import { api } from "@/lib/api";
-import type { WorkflowState, WorkItem, Label, Workspace, BulkOperationResult, Project, BoardSettings } from "@/lib/types";
+import type { WorkflowState, WorkItem, Label, Workspace, BulkOperationResult, Project, BoardSettings, ItemTemplate } from "@/lib/types";
 import Board from "@/components/Board";
 import CardDetail from "@/components/CardDetail";
 import FilterBar, { Filters } from "@/components/FilterBar";
@@ -40,6 +40,7 @@ export default function ProjectBoardPage() {
   const [selectedItem, setSelectedItem] = useState<WorkItem | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
+  const [templates, setTemplates] = useState<ItemTemplate[]>([]);
   const [boardSettings, setBoardSettings] = useState<BoardSettings>({
     wip_limits: {},
     swimlane: null,
@@ -78,6 +79,7 @@ export default function ProjectBoardPage() {
     api.get<Project>(basePath).then((p) => {
       if (p.board_settings) setBoardSettings(p.board_settings);
     }).catch(() => {});
+    api.get<ItemTemplate[]>(`${basePath}/templates`).then(setTemplates).catch(() => {});
   }, [loadData, basePath]);
 
   useEffect(() => {
@@ -109,6 +111,22 @@ export default function ProjectBoardPage() {
       status_id: statusId,
     });
     setItems((prev) => [...prev, item]);
+  }
+
+  async function onItemCreateFromTemplate(statusId: number, tmpl: ItemTemplate) {
+    const item = await api.post<WorkItem>(`${basePath}/items`, {
+      title: tmpl.title_template || tmpl.name,
+      description: tmpl.description_template || undefined,
+      status_id: statusId,
+      priority: tmpl.priority,
+    });
+    // Apply template labels
+    if (tmpl.label_ids && tmpl.label_ids.length > 0) {
+      for (const labelId of tmpl.label_ids) {
+        await api.post(`${basePath}/items/${item.item_number}/labels/${labelId}`).catch(() => {});
+      }
+    }
+    loadData();
   }
 
   async function onItemUpdate(itemNumber: number, data: Partial<WorkItem>) {
@@ -256,6 +274,8 @@ export default function ProjectBoardPage() {
           selectedIds={selectedIds}
           onToggleSelect={toggleSelect}
           boardSettings={boardSettings}
+          templates={templates}
+          onItemCreateFromTemplate={onItemCreateFromTemplate}
         />
       ) : (
         <CalendarView

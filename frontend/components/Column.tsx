@@ -1,7 +1,7 @@
 "use client";
 
 import { useDroppable } from "@dnd-kit/core";
-import type { WorkflowState, WorkItem, CardDisplaySettings } from "@/lib/types";
+import type { WorkflowState, WorkItem, CardDisplaySettings, ItemTemplate } from "@/lib/types";
 import Card from "./Card";
 import QuickCreate from "./QuickCreate";
 
@@ -9,15 +9,17 @@ interface ColumnProps {
   state: WorkflowState;
   items: WorkItem[];
   onItemCreate: (statusId: number, title: string) => Promise<void>;
+  onItemCreateFromTemplate?: (statusId: number, template: ItemTemplate) => Promise<void>;
   onCardClick: (item: WorkItem) => void;
   selectable?: boolean;
   selectedIds?: Set<number>;
   onToggleSelect?: (id: number) => void;
   wipLimit?: number;
   cardDisplay?: CardDisplaySettings;
+  templates?: ItemTemplate[];
 }
 
-export default function Column({ state, items, onItemCreate, onCardClick, selectable, selectedIds, onToggleSelect, wipLimit, cardDisplay }: ColumnProps) {
+export default function Column({ state, items, onItemCreate, onItemCreateFromTemplate, onCardClick, selectable, selectedIds, onToggleSelect, wipLimit, cardDisplay, templates }: ColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: `column-${state.id}`,
   });
@@ -65,7 +67,11 @@ export default function Column({ state, items, onItemCreate, onCardClick, select
             cardDisplay={cardDisplay}
           />
         ))}
-        <QuickCreate onSubmit={(title) => onItemCreate(state.id, title)} />
+        <QuickCreate
+          onSubmit={(title) => onItemCreate(state.id, title)}
+          templates={templates}
+          onSubmitFromTemplate={onItemCreateFromTemplate ? (tmpl) => onItemCreateFromTemplate(state.id, tmpl) : undefined}
+        />
       </div>
     </div>
   );

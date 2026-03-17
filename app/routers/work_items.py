@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.activity import record_activity
+from app.automation import run_status_automations
 from app.database import get_db
 from app.deps import get_current_user, get_workspace_member
 from app.models import Label, Project, User, Workspace, WorkflowState, WorkItem, WorkItemAssignee, WorkItemLabel
@@ -125,13 +126,15 @@ def update_item(
 
     update_data = body.model_dump(exclude_unset=True)
 
+    new_status_id = None
     if "status_id" in update_data and update_data["status_id"] != item.status_id:
+        new_status_id = update_data["status_id"]
         old_state = db.get(WorkflowState, item.status_id)
-        new_state = db.get(WorkflowState, update_data["status_id"])
+        new_state = db.get(WorkflowState, new_status_id)
         record_activity(
             db, item.id, user.id, "status_change",
             old_value=old_state.name if old_state else str(item.status_id),
-            new_value=new_state.name if new_state else str(update_data["status_id"]),
+            new_value=new_state.name if new_state else str(new_status_id),
         )
 
     if "priority" in update_data and update_data["priority"] != item.priority:
@@ -146,6 +149,9 @@ def update_item(
     for field in ("title", "description", "status_id", "priority", "position", "archived", "due_date"):
         if field in update_data:
             setattr(item, field, update_data[field])
+
+    if new_status_id is not None:
+        run_status_automations(db, item, new_status_id, user.id)
 
     db.commit()
     db.refresh(item)
