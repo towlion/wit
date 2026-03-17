@@ -17,7 +17,6 @@ recurrence_frequency = sa.Enum("daily", "weekly", "monthly", name="recurrence_fr
 
 
 def upgrade() -> None:
-    recurrence_frequency.create(op.get_bind(), checkfirst=True)
     op.create_table(
         "recurrence_rules",
         sa.Column("id", sa.Integer(), primary_key=True),

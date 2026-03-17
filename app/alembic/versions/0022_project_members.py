@@ -17,7 +17,6 @@ project_role = sa.Enum("viewer", "editor", "admin", name="project_role")
 
 
 def upgrade() -> None:
-    project_role.create(op.get_bind(), checkfirst=True)
     op.create_table(
         "project_members",
         sa.Column("id", sa.Integer(), primary_key=True),

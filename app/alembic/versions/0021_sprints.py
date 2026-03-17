@@ -17,7 +17,6 @@ sprint_status = sa.Enum("planning", "active", "completed", name="sprint_status")
 
 
 def upgrade() -> None:
-    sprint_status.create(op.get_bind(), checkfirst=True)
     op.create_table(
         "sprints",
         sa.Column("id", sa.Integer(), primary_key=True),
