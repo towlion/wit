@@ -477,6 +477,32 @@ class Subtask(Base):
     )
 
 
+class RecurrenceRule(Base):
+    __tablename__ = "recurrence_rules"
+    __table_args__ = (
+        Index("ix_recurrence_rules_next_run", "enabled", "next_run_at"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
+    template_item_id: Mapped[int] = mapped_column(ForeignKey("work_items.id", ondelete="CASCADE"))
+    frequency: Mapped[str] = mapped_column(
+        Enum("daily", "weekly", "monthly", name="recurrence_frequency"), nullable=False
+    )
+    day_of_week: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    day_of_month: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    next_run_at: Mapped[datetime.date] = mapped_column(Date, nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_by_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    project: Mapped["Project"] = relationship()
+    template_item: Mapped["WorkItem"] = relationship()
+    created_by: Mapped["User"] = relationship()
+
+
 class EmailLog(Base):
     __tablename__ = "email_log"
 

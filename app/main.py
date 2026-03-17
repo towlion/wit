@@ -11,9 +11,9 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 from app.routers import (
-    activity, admin, api_tokens, attachments, auth, custom_fields, insights, invites,
-    labels, members, notifications, profile, projects, saved_views, search, states,
-    templates, watchers, webhooks, work_items, workspaces,
+    activity, admin, api_tokens, attachments, auth, custom_fields, importexport, insights,
+    invites, labels, members, notifications, profile, projects, recurrences, saved_views,
+    search, states, templates, watchers, webhooks, work_items, workspaces,
 )
 
 # Configure structured JSON logging
@@ -111,6 +111,8 @@ app.include_router(admin.router, prefix="/api")
 app.include_router(watchers.router, prefix="/api")
 app.include_router(members.router, prefix="/api")
 app.include_router(saved_views.router, prefix="/api")
+app.include_router(recurrences.router, prefix="/api")
+app.include_router(importexport.router, prefix="/api")
 
 
 @app.get("/health")

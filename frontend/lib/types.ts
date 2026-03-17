@@ -336,3 +336,30 @@ export interface WorkspaceInsights {
   most_active_members: ActiveMemberSummary[];
   activity_trend: ActivityTrendPoint[];
 }
+
+// --- Recurrences ---
+export interface RecurrenceRule {
+  id: number;
+  project_id: number;
+  template_item_id: number;
+  template_item_number: number;
+  template_title: string;
+  frequency: "daily" | "weekly" | "monthly";
+  day_of_week: number | null;
+  day_of_month: number | null;
+  next_run_at: string;
+  enabled: boolean;
+  created_at: string;
+}
+
+// --- Import/Export ---
+export interface ImportCsvResponse {
+  created: number;
+  errors: { row: number; message: string }[];
+}
+
+export interface ImportJsonResponse {
+  created: number;
+  states_created: number;
+  labels_created: number;
+}

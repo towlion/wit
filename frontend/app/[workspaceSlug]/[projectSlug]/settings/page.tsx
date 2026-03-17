@@ -3,7 +3,8 @@
 import { useEffect, useState, FormEvent } from "react";
 import { useParams } from "next/navigation";
 import { api } from "@/lib/api";
-import type { WorkflowState, Label, ItemTemplate, AutomationRule, Workspace, Member } from "@/lib/types";
+import type { WorkflowState, Label, ItemTemplate, AutomationRule, Workspace, Member, WorkItem, RecurrenceRule } from "@/lib/types";
+import ImportModal from "@/components/ImportModal";
 import { useAuth } from "@/lib/auth";
 
 export default function ProjectSettingsPage() {
@@ -51,6 +52,15 @@ export default function ProjectSettingsPage() {
   const [newRuleAction, setNewRuleAction] = useState("assign_user");
   const [newRuleConfigValue, setNewRuleConfigValue] = useState("");
 
+  // Recurring items
+  const [recurrences, setRecurrences] = useState<RecurrenceRule[]>([]);
+  const [items, setItems] = useState<WorkItem[]>([]);
+  const [newRecItemNumber, setNewRecItemNumber] = useState("");
+  const [newRecFrequency, setNewRecFrequency] = useState("weekly");
+
+  // Import modal
+  const [showImport, setShowImport] = useState(false);
+
   useEffect(() => {
     api.get<WorkflowState[]>(`${basePath}/states`).then(setStates);
     api.get<Label[]>(`${basePath}/labels`).then(setLabels);
@@ -58,6 +68,8 @@ export default function ProjectSettingsPage() {
     api.get<ItemTemplate[]>(`${basePath}/templates`).then(setTemplates).catch((e) => console.warn("Failed to load templates:", e.message));
     api.get<AutomationRule[]>(`${basePath}/automations`).then(setRules).catch((e) => console.warn("Failed to load automations:", e.message));
     api.get<{ members: Member[] }>(`/workspaces/${wsSlug}`).then((ws) => setMembers(ws.members)).catch((e) => console.warn("Failed to load members:", e.message));
+    api.get<RecurrenceRule[]>(`${basePath}/recurrences`).then(setRecurrences).catch((e) => console.warn("Failed to load recurrences:", e.message));
+    api.get<WorkItem[]>(`${basePath}/items`).then(setItems).catch((e) => console.warn("Failed to load items:", e.message));
   }, [basePath, wsSlug]);
 
   async function addField(e: FormEvent) {
@@ -395,7 +407,7 @@ export default function ProjectSettingsPage() {
       <div className="h-px bg-[var(--border)] mb-8" />
 
       {/* Automation Rules */}
-      <section>
+      <section className="mb-8">
         <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-3">Automation rules</h2>
         <div className="space-y-2 mb-4">
           {rules.map((r) => (
@@ -478,6 +490,119 @@ export default function ProjectSettingsPage() {
           </div>
         </form>
       </section>
+      <div className="h-px bg-[var(--border)] mb-8" />
+
+      {/* Recurring Items */}
+      <section className="mb-8">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-3">Recurring items</h2>
+        <div className="space-y-2 mb-4">
+          {recurrences.map((r) => (
+            <div key={r.id} className="flex items-center justify-between p-3.5 card-surface">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <button
+                  onClick={async () => {
+                    const updated = await api.patch<RecurrenceRule>(`${basePath}/recurrences/${r.id}`, { enabled: !r.enabled });
+                    setRecurrences(recurrences.map((x) => (x.id === r.id ? updated : x)));
+                  }}
+                  className={`w-3 h-3 rounded-full shrink-0 transition-colors ${r.enabled ? "bg-green-500" : "bg-zinc-500"}`}
+                  title={r.enabled ? "Enabled (click to disable)" : "Disabled (click to enable)"}
+                />
+                <span className="text-sm font-medium truncate">#{r.template_item_number} {r.template_title}</span>
+                <span className="text-[11px] px-2 py-0.5 rounded-full bg-[var(--bg-tertiary)] text-[var(--text-muted)] border border-[var(--border-subtle)]">
+                  {r.frequency}
+                </span>
+                <span className="text-[11px] text-[var(--text-muted)]">
+                  Next: {r.next_run_at}
+                </span>
+              </div>
+              <button
+                onClick={async () => {
+                  await api.delete(`${basePath}/recurrences/${r.id}`);
+                  setRecurrences(recurrences.filter((x) => x.id !== r.id));
+                }}
+                className="text-xs text-red-400/70 hover:text-red-400 transition-colors shrink-0 ml-2"
+              >
+                Delete
+              </button>
+            </div>
+          ))}
+        </div>
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            const rule = await api.post<RecurrenceRule>(`${basePath}/recurrences`, {
+              template_item_number: parseInt(newRecItemNumber),
+              frequency: newRecFrequency,
+            });
+            setRecurrences([...recurrences, rule]);
+            setNewRecItemNumber("");
+          }}
+          className="flex gap-2"
+        >
+          <select
+            value={newRecItemNumber}
+            onChange={(e) => setNewRecItemNumber(e.target.value)}
+            required
+            className="input-base flex-1"
+          >
+            <option value="">Select template item...</option>
+            {items.filter((i) => !i.archived).map((i) => (
+              <option key={i.id} value={i.item_number}>#{i.item_number} {i.title}</option>
+            ))}
+          </select>
+          <select
+            value={newRecFrequency}
+            onChange={(e) => setNewRecFrequency(e.target.value)}
+            className="input-base w-auto"
+          >
+            <option value="daily">Daily</option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+          </select>
+          <button type="submit" className="btn-primary">Add</button>
+        </form>
+      </section>
+
+      <div className="h-px bg-[var(--border)] mb-8" />
+
+      {/* Data */}
+      <section>
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-3">Data</h2>
+        <div className="flex gap-2">
+          <a
+            href={`/api${basePath}/export.csv`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs px-3 py-1.5 rounded-lg border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] transition-colors"
+          >
+            Export CSV
+          </a>
+          <a
+            href={`/api${basePath}/export.json`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs px-3 py-1.5 rounded-lg border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] transition-colors"
+          >
+            Export JSON
+          </a>
+          <button
+            onClick={() => setShowImport(true)}
+            className="btn-primary text-xs"
+          >
+            Import
+          </button>
+        </div>
+      </section>
+
+      {showImport && (
+        <ImportModal
+          basePath={basePath}
+          onClose={() => setShowImport(false)}
+          onImported={() => {
+            api.get<WorkItem[]>(`${basePath}/items`).then(setItems);
+          }}
+        />
+      )}
     </div>
   );
 }

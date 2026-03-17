@@ -796,3 +796,56 @@ class SubtaskSummary(BaseModel):
     """Subtask completion summary."""
     total: int
     completed: int
+
+
+# --- Recurrences ---
+class RecurrenceRuleCreate(BaseModel):
+    """Create a recurrence rule for an item."""
+    template_item_number: int = Field(description="Item number to use as template")
+    frequency: str = Field(description="Frequency: daily, weekly, or monthly")
+    day_of_week: int | None = Field(default=None, description="Day of week (0=Mon..6=Sun)")
+    day_of_month: int | None = Field(default=None, description="Day of month (1-31)")
+
+
+class RecurrenceRuleUpdate(BaseModel):
+    """Update a recurrence rule."""
+    frequency: str | None = None
+    day_of_week: int | None = None
+    day_of_month: int | None = None
+    enabled: bool | None = None
+
+
+class RecurrenceRuleResponse(BaseModel):
+    """Recurrence rule details."""
+    id: int
+    project_id: int
+    template_item_id: int
+    template_item_number: int
+    template_title: str
+    frequency: str
+    day_of_week: int | None
+    day_of_month: int | None
+    next_run_at: date
+    enabled: bool
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class RecurrenceProcessResponse(BaseModel):
+    """Result of processing recurrence rules."""
+    created: int
+
+
+# --- Import/Export ---
+class ImportCsvResponse(BaseModel):
+    """Result of CSV import."""
+    created: int
+    errors: list[dict]
+
+
+class ImportJsonResponse(BaseModel):
+    """Result of JSON import."""
+    created: int
+    states_created: int
+    labels_created: int

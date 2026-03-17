@@ -14,6 +14,7 @@ from app.deps import get_current_user, get_workspace_member
 from app.models import (
     ActivityEvent,
     Project,
+    Subtask,
     User,
     WorkflowState,
     WorkItem,
@@ -322,7 +323,7 @@ def export_csv(
 
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["item_number", "title", "description", "status", "priority", "due_date", "created_by", "created_at", "assignees", "labels"])
+    writer.writerow(["item_number", "title", "description", "status", "priority", "due_date", "created_by", "created_at", "assignees", "labels", "subtask_total", "subtask_completed"])
 
     for item in items:
         if item.created_by_id not in users_map:
@@ -331,6 +332,10 @@ def export_csv(
 
         assignee_names = ", ".join(a.display_name for a in item.assignees)
         label_names = ", ".join(lb.name for lb in item.labels)
+
+        subtasks = db.query(Subtask).filter_by(work_item_id=item.id).all()
+        subtask_total = len(subtasks)
+        subtask_completed = sum(1 for s in subtasks if s.completed)
 
         row = [
             str(item.item_number),
@@ -343,6 +348,8 @@ def export_csv(
             item.created_at.isoformat(),
             assignee_names,
             label_names,
+            str(subtask_total),
+            str(subtask_completed),
         ]
         writer.writerow(row)
 

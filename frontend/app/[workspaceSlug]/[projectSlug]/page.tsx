@@ -9,6 +9,7 @@ import CardDetail from "@/components/CardDetail";
 import FilterBar, { Filters } from "@/components/FilterBar";
 import CalendarView from "@/components/CalendarView";
 import DependencyGraph from "@/components/DependencyGraph";
+import TimelineView from "@/components/TimelineView";
 import SearchModal from "@/components/SearchModal";
 import ShortcutHelp from "@/components/ShortcutHelp";
 import BulkToolbar from "@/components/BulkToolbar";
@@ -19,7 +20,7 @@ import { useAuth } from "@/lib/auth";
 import { useToast } from "@/lib/toast";
 import Link from "next/link";
 
-type ViewMode = "board" | "calendar" | "dependencies";
+type ViewMode = "board" | "calendar" | "dependencies" | "timeline";
 
 export default function ProjectBoardPage() {
   const params = useParams();
@@ -273,6 +274,16 @@ export default function ProjectBoardPage() {
             >
               Dependencies
             </button>
+            <button
+              onClick={() => setViewMode("timeline")}
+              className={`text-[10px] px-2.5 py-1.5 font-medium transition-colors ${
+                viewMode === "timeline"
+                  ? "bg-[var(--accent-subtle)] text-[var(--accent-hover)]"
+                  : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
+              }`}
+            >
+              Timeline
+            </button>
           </div>
           {viewMode === "board" && (
             <select
@@ -368,6 +379,12 @@ export default function ProjectBoardPage() {
           states={states}
           onCardClick={setSelectedItem}
         />
+      ) : viewMode === "timeline" ? (
+        <TimelineView
+          items={filteredItems}
+          states={states}
+          onCardClick={setSelectedItem}
+        />
       ) : (
         <CalendarView
           items={filteredItems}
@@ -376,7 +393,7 @@ export default function ProjectBoardPage() {
           onCardClick={setSelectedItem}
         />
       )}
-      {selectedItem && (viewMode === "calendar" || viewMode === "dependencies") && (
+      {selectedItem && (viewMode === "calendar" || viewMode === "dependencies" || viewMode === "timeline") && (
         <CardDetail
           item={selectedItem}
           basePath={basePath}
