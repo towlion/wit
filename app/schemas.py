@@ -697,6 +697,14 @@ class BurndownPoint(BaseModel):
     remaining: int = Field(description="Remaining active items")
 
 
+class CfdPoint(BaseModel):
+    """Daily cumulative flow diagram data point."""
+    date: date
+    todo: int
+    in_progress: int
+    done: int
+
+
 class CycleTimeStats(BaseModel):
     """Cycle time statistics for completed items."""
     avg_days: float | None = Field(default=None, description="Average days from in_progress to done")
@@ -726,6 +734,7 @@ class ProjectInsightsResponse(BaseModel):
     status_distribution: list[StatusDistributionItem]
     priority_distribution: list[PriorityDistributionItem]
     burndown: list[BurndownPoint]
+    cfd: list[CfdPoint]
     cycle_time: CycleTimeStats
     member_breakdown: list[MemberBreakdown]
     recently_completed: list[RecentlyCompletedItem]

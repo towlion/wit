@@ -26,6 +26,7 @@ from app.schemas import (
     ActiveMemberSummary,
     ActivityTrendPoint,
     BurndownPoint,
+    CfdPoint,
     CycleTimeStats,
     MemberBreakdown,
     MemberWorkload,
@@ -163,6 +164,37 @@ def project_insights(
 
     burndown.reverse()
 
+    # Cumulative flow diagram — derive current counts from status_distribution
+    current_cfd = {"todo": 0, "in_progress": 0, "done": 0}
+    for sd in status_distribution:
+        current_cfd[sd.category] += sd.count
+
+    cfd_counts = dict(current_cfd)
+    cfd = []
+    cfd_event_idx = 0
+    for day_offset in range(31):
+        d = today - timedelta(days=day_offset)
+        while cfd_event_idx < len(status_events):
+            ev = status_events[cfd_event_idx]
+            ev_date = ev.created_at.date()
+            if ev_date < d:
+                break
+            if ev_date == d:
+                old_cat = state_name_to_category.get(ev.old_value)
+                new_cat = state_name_to_category.get(ev.new_value)
+                if new_cat and new_cat in cfd_counts:
+                    cfd_counts[new_cat] -= 1
+                if old_cat and old_cat in cfd_counts:
+                    cfd_counts[old_cat] += 1
+            cfd_event_idx += 1
+        cfd.append(CfdPoint(
+            date=d,
+            todo=max(cfd_counts["todo"], 0),
+            in_progress=max(cfd_counts["in_progress"], 0),
+            done=max(cfd_counts["done"], 0),
+        ))
+    cfd.reverse()
+
     # Cycle time
     done_state_ids = {s.id for s in states if s.category == "done"}
     done_items = (
@@ -299,6 +331,7 @@ def project_insights(
         status_distribution=status_distribution,
         priority_distribution=priority_distribution,
         burndown=burndown,
+        cfd=cfd,
         cycle_time=cycle_time,
         member_breakdown=member_breakdown,
         recently_completed=recently_completed,

@@ -284,6 +284,13 @@ export interface BurndownPoint {
   remaining: number;
 }
 
+export interface CfdPoint {
+  date: string;
+  todo: number;
+  in_progress: number;
+  done: number;
+}
+
 export interface CycleTimeStats {
   avg_days: number | null;
   median_days: number | null;
@@ -309,6 +316,7 @@ export interface ProjectInsights {
   status_distribution: StatusDistributionItem[];
   priority_distribution: PriorityDistributionItem[];
   burndown: BurndownPoint[];
+  cfd: CfdPoint[];
   cycle_time: CycleTimeStats;
   member_breakdown: MemberBreakdownItem[];
   recently_completed: RecentlyCompletedItem[];

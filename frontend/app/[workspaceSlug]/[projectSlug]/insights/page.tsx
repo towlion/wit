@@ -8,6 +8,7 @@ import type { ProjectInsights, ProjectWorkload } from "@/lib/types";
 import BarChart from "@/components/BarChart";
 import LineChart from "@/components/LineChart";
 import StackedBar from "@/components/StackedBar";
+import StackedAreaChart from "@/components/StackedAreaChart";
 
 const PRIORITY_COLORS: Record<string, string> = {
   urgent: "#ef4444",
@@ -154,6 +155,28 @@ export default function ProjectInsightsPage() {
               value: b.remaining,
             }))}
             color="#6366f1"
+          />
+        ) : (
+          <div className="text-center py-8 text-sm text-[var(--text-muted)]">No data</div>
+        )}
+      </div>
+
+      {/* Cumulative Flow */}
+      <div className="card-surface p-4 mb-6">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-3">
+          Cumulative Flow (30 days)
+        </h2>
+        {data.cfd.length > 0 ? (
+          <StackedAreaChart
+            points={data.cfd.map((c) => ({
+              label: c.date.slice(5),
+              values: { done: c.done, in_progress: c.in_progress, todo: c.todo },
+            }))}
+            series={[
+              { key: "done", label: "Done", color: "#10b981" },
+              { key: "in_progress", label: "In Progress", color: "#6366f1" },
+              { key: "todo", label: "Todo", color: "#6b7280" },
+            ]}
           />
         ) : (
           <div className="text-center py-8 text-sm text-[var(--text-muted)]">No data</div>
