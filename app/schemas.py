@@ -202,6 +202,21 @@ class WorkItemAssigneeResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class DependencyItem(BaseModel):
+    item_id: int
+    item_number: int
+    title: str
+
+
+class DependencyCreate(BaseModel):
+    blocks_item_number: int
+
+
+class DependencyResponse(BaseModel):
+    blocks: list[DependencyItem] = []
+    blocked_by: list[DependencyItem] = []
+
+
 class WorkItemResponse(BaseModel):
     id: int
     project_id: int
@@ -217,6 +232,8 @@ class WorkItemResponse(BaseModel):
     due_date: date | None = None
     assignees: list[WorkItemAssigneeResponse] = []
     labels: list[LabelResponse] = []
+    blocks: list[DependencyItem] = []
+    blocked_by: list[DependencyItem] = []
 
     model_config = {"from_attributes": True}
 

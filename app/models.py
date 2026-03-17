@@ -2,6 +2,7 @@ import datetime
 
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     Date,
     DateTime,
     Enum,
@@ -161,6 +162,20 @@ class WorkItemLabel(Base):
     )
     label_id: Mapped[int] = mapped_column(
         ForeignKey("labels.id", ondelete="CASCADE"), primary_key=True
+    )
+
+
+class WorkItemDependency(Base):
+    __tablename__ = "work_item_dependencies"
+    __table_args__ = (
+        CheckConstraint("blocking_item_id != blocked_item_id", name="ck_no_self_dependency"),
+    )
+
+    blocking_item_id: Mapped[int] = mapped_column(
+        ForeignKey("work_items.id", ondelete="CASCADE"), primary_key=True
+    )
+    blocked_item_id: Mapped[int] = mapped_column(
+        ForeignKey("work_items.id", ondelete="CASCADE"), primary_key=True
     )
 
 

@@ -9,8 +9,8 @@ from app.activity import record_activity
 from app.automation import run_status_automations
 from app.database import get_db
 from app.deps import get_current_user, get_workspace_member
-from app.models import Label, Project, User, Workspace, WorkflowState, WorkItem, WorkItemAssignee, WorkItemLabel
-from app.schemas import WorkItemCreate, WorkItemResponse, WorkItemUpdate
+from app.models import Label, Project, User, Workspace, WorkflowState, WorkItem, WorkItemAssignee, WorkItemDependency, WorkItemLabel
+from app.schemas import DependencyCreate, DependencyItem, DependencyResponse, WorkItemCreate, WorkItemResponse, WorkItemUpdate
 
 from app.websocket import manager as ws_manager
 
@@ -24,6 +24,37 @@ def _broadcast(project_id: int, event_type: str, item_number: int):
             loop.create_task(ws_manager.broadcast(project_id, {"type": event_type, "item_number": item_number}))
     except RuntimeError:
         pass
+
+
+def _get_dependencies(db: Session, item_id: int) -> dict:
+    blocks_rows = (
+        db.query(WorkItemDependency, WorkItem)
+        .join(WorkItem, WorkItem.id == WorkItemDependency.blocked_item_id)
+        .filter(WorkItemDependency.blocking_item_id == item_id)
+        .all()
+    )
+    blocked_by_rows = (
+        db.query(WorkItemDependency, WorkItem)
+        .join(WorkItem, WorkItem.id == WorkItemDependency.blocking_item_id)
+        .filter(WorkItemDependency.blocked_item_id == item_id)
+        .all()
+    )
+    return {
+        "blocks": [
+            DependencyItem(item_id=wi.id, item_number=wi.item_number, title=wi.title)
+            for _, wi in blocks_rows
+        ],
+        "blocked_by": [
+            DependencyItem(item_id=wi.id, item_number=wi.item_number, title=wi.title)
+            for _, wi in blocked_by_rows
+        ],
+    }
+
+
+def _item_response(db: Session, item: WorkItem) -> dict:
+    data = WorkItemResponse.model_validate(item).model_dump()
+    data.update(_get_dependencies(db, item.id))
+    return data
 
 
 def _resolve_project(ws_slug: str, project_slug: str, user: User, db: Session) -> Project:
@@ -58,7 +89,8 @@ def list_items(
         q = q.filter(WorkItem.due_date <= due_before, WorkItem.due_date.isnot(None))
     if due_after:
         q = q.filter(WorkItem.due_date >= due_after, WorkItem.due_date.isnot(None))
-    return q.order_by(WorkItem.position).all()
+    items = q.order_by(WorkItem.position).all()
+    return [_item_response(db, i) for i in items]
 
 
 @router.post(
@@ -100,7 +132,7 @@ def create_item(
     db.commit()
     db.refresh(item)
     _broadcast(project.id, "item_created", item.item_number)
-    return item
+    return _item_response(db, item)
 
 
 @router.get(
@@ -118,7 +150,7 @@ def get_item(
     item = db.query(WorkItem).filter_by(project_id=project.id, item_number=item_number).first()
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
-    return item
+    return _item_response(db, item)
 
 
 @router.patch(
@@ -170,7 +202,7 @@ def update_item(
     db.commit()
     db.refresh(item)
     _broadcast(project.id, "item_updated", item.item_number)
-    return item
+    return _item_response(db, item)
 
 
 @router.delete(
@@ -312,3 +344,86 @@ def remove_item_label(
     db.delete(wil)
     db.commit()
     _broadcast(project.id, "item_updated", item.item_number)
+
+
+# --- Dependencies ---
+@router.get(
+    "/workspaces/{ws_slug}/projects/{project_slug}/items/{item_number}/dependencies",
+    response_model=DependencyResponse,
+)
+def list_dependencies(
+    ws_slug: str,
+    project_slug: str,
+    item_number: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    project = _resolve_project(ws_slug, project_slug, user, db)
+    item = db.query(WorkItem).filter_by(project_id=project.id, item_number=item_number).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    return _get_dependencies(db, item.id)
+
+
+@router.post(
+    "/workspaces/{ws_slug}/projects/{project_slug}/items/{item_number}/dependencies",
+    status_code=status.HTTP_201_CREATED,
+)
+def add_dependency(
+    ws_slug: str,
+    project_slug: str,
+    item_number: int,
+    body: DependencyCreate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    project = _resolve_project(ws_slug, project_slug, user, db)
+    item = db.query(WorkItem).filter_by(project_id=project.id, item_number=item_number).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    blocked = db.query(WorkItem).filter_by(project_id=project.id, item_number=body.blocks_item_number).first()
+    if not blocked:
+        raise HTTPException(status_code=404, detail="Target item not found")
+    if item.id == blocked.id:
+        raise HTTPException(status_code=400, detail="Cannot create self-dependency")
+    existing = db.query(WorkItemDependency).filter_by(
+        blocking_item_id=item.id, blocked_item_id=blocked.id
+    ).first()
+    if existing:
+        raise HTTPException(status_code=409, detail="Dependency already exists")
+    db.add(WorkItemDependency(blocking_item_id=item.id, blocked_item_id=blocked.id))
+    db.commit()
+    _broadcast(project.id, "item_updated", item.item_number)
+    _broadcast(project.id, "item_updated", blocked.item_number)
+    return {"ok": True}
+
+
+@router.delete(
+    "/workspaces/{ws_slug}/projects/{project_slug}/items/{item_number}/dependencies/{related_item_number}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def remove_dependency(
+    ws_slug: str,
+    project_slug: str,
+    item_number: int,
+    related_item_number: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    project = _resolve_project(ws_slug, project_slug, user, db)
+    item = db.query(WorkItem).filter_by(project_id=project.id, item_number=item_number).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    related = db.query(WorkItem).filter_by(project_id=project.id, item_number=related_item_number).first()
+    if not related:
+        raise HTTPException(status_code=404, detail="Related item not found")
+    dep = db.query(WorkItemDependency).filter(
+        ((WorkItemDependency.blocking_item_id == item.id) & (WorkItemDependency.blocked_item_id == related.id))
+        | ((WorkItemDependency.blocking_item_id == related.id) & (WorkItemDependency.blocked_item_id == item.id))
+    ).first()
+    if not dep:
+        raise HTTPException(status_code=404, detail="Dependency not found")
+    db.delete(dep)
+    db.commit()
+    _broadcast(project.id, "item_updated", item.item_number)
+    _broadcast(project.id, "item_updated", related.item_number)

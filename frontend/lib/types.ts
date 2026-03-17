@@ -70,6 +70,12 @@ export interface Label {
   color: string;
 }
 
+export interface DependencyItem {
+  item_id: number;
+  item_number: number;
+  title: string;
+}
+
 export interface WorkItem {
   id: number;
   project_id: number;
@@ -85,6 +91,8 @@ export interface WorkItem {
   due_date: string | null;
   assignees: User[];
   labels: Label[];
+  blocks: DependencyItem[];
+  blocked_by: DependencyItem[];
 }
 
 export interface ActivityEvent {

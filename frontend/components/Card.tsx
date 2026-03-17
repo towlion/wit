@@ -42,7 +42,8 @@ export default function Card({ item, overlay, onClick, selectable, selected, onT
 
   const d = cardDisplay || DEFAULT_DISPLAY;
   const priorityColor = PRIORITY_COLORS[item.priority] || PRIORITY_COLORS.medium;
-  const hasMetadata = (d.show_priority) || (d.show_due_date && item.due_date) || (d.show_labels && item.labels.length > 0) || (d.show_assignees && item.assignees.length > 0);
+  const isBlocked = item.blocked_by && item.blocked_by.length > 0;
+  const hasMetadata = (d.show_priority) || (d.show_due_date && item.due_date) || (d.show_labels && item.labels.length > 0) || (d.show_assignees && item.assignees.length > 0) || isBlocked;
 
   return (
     <div
@@ -105,6 +106,18 @@ export default function Card({ item, overlay, onClick, selectable, selected, onT
               }`}
             >
               {item.priority}
+            </span>
+          )}
+
+          {isBlocked && (
+            <span
+              className="text-[10px] px-1.5 py-0.5 rounded-md font-medium border bg-red-500/15 text-red-400 border-red-500/20 flex items-center gap-1"
+              title={`Blocked by ${item.blocked_by.map((d) => "#" + d.item_number).join(", ")}`}
+            >
+              <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+              </svg>
+              blocked
             </span>
           )}
 

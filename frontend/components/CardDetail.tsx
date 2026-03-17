@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { api } from "@/lib/api";
-import type { WorkItem, WorkflowState } from "@/lib/types";
+import type { DependencyItem, WorkItem, WorkflowState } from "@/lib/types";
 import ActivityFeed from "./ActivityFeed";
 import AttachmentList from "./AttachmentList";
 import CustomFieldInput from "./CustomFieldInput";
@@ -58,6 +58,12 @@ export default function CardDetail({ item, basePath, onClose, onUpdate }: CardDe
   const [fieldDefs, setFieldDefs] = useState<FieldDef[]>([]);
   const [fieldValues, setFieldValues] = useState<Record<number, FieldVal>>({});
 
+  // Dependencies
+  const [blocks, setBlocks] = useState<DependencyItem[]>(item.blocks || []);
+  const [blockedBy, setBlockedBy] = useState<DependencyItem[]>(item.blocked_by || []);
+  const [depInput, setDepInput] = useState("");
+  const [depType, setDepType] = useState<"blocks" | "blocked_by">("blocks");
+
   // Attachments
   const [attachments, setAttachments] = useState<AttachmentItem[]>([]);
 
@@ -72,6 +78,10 @@ export default function CardDetail({ item, basePath, onClose, onUpdate }: CardDe
       setFieldValues(map);
     });
     api.get<AttachmentItem[]>(`${itemPath}/attachments`).then(setAttachments);
+    api.get<{ blocks: DependencyItem[]; blocked_by: DependencyItem[] }>(`${itemPath}/dependencies`).then((deps) => {
+      setBlocks(deps.blocks);
+      setBlockedBy(deps.blocked_by);
+    });
   }, [basePath, itemPath]);
 
   async function handleSave() {
@@ -102,6 +112,26 @@ export default function CardDetail({ item, basePath, onClose, onUpdate }: CardDe
   async function handleDeleteAttachment(id: number) {
     await api.delete(`${itemPath}/attachments/${id}`);
     setAttachments((prev) => prev.filter((a) => a.id !== id));
+  }
+
+  async function handleAddDependency() {
+    const num = parseInt(depInput);
+    if (!num) return;
+    if (depType === "blocks") {
+      await api.post(`${itemPath}/dependencies`, { blocks_item_number: num });
+    } else {
+      await api.post(`${basePath}/items/${num}/dependencies`, { blocks_item_number: item.item_number });
+    }
+    const deps = await api.get<{ blocks: DependencyItem[]; blocked_by: DependencyItem[] }>(`${itemPath}/dependencies`);
+    setBlocks(deps.blocks);
+    setBlockedBy(deps.blocked_by);
+    setDepInput("");
+  }
+
+  async function handleRemoveDependency(relatedNumber: number) {
+    await api.delete(`${itemPath}/dependencies/${relatedNumber}`);
+    setBlocks((prev) => prev.filter((d) => d.item_number !== relatedNumber));
+    setBlockedBy((prev) => prev.filter((d) => d.item_number !== relatedNumber));
   }
 
   return (
@@ -254,6 +284,85 @@ export default function CardDetail({ item, basePath, onClose, onUpdate }: CardDe
               </div>
             </>
           )}
+
+          {/* Dependencies */}
+          <div className="h-px bg-[var(--border)] mb-5" />
+          <div className="mb-6">
+            <label className="block text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-2.5">Dependencies</label>
+
+            {blocks.length > 0 && (
+              <div className="mb-3">
+                <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">This item blocks</span>
+                <div className="mt-1.5 space-y-1">
+                  {blocks.map((d) => (
+                    <div key={d.item_id} className="flex items-center justify-between text-xs px-3 py-1.5 rounded-lg bg-[var(--bg-tertiary)] border border-[var(--border)]">
+                      <span>
+                        <span className="text-[var(--text-muted)] font-mono">#{d.item_number}</span>{" "}
+                        {d.title}
+                      </span>
+                      <button
+                        onClick={() => handleRemoveDependency(d.item_number)}
+                        className="text-[var(--text-muted)] hover:text-red-400 transition-colors ml-2"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {blockedBy.length > 0 && (
+              <div className="mb-3">
+                <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">This item is blocked by</span>
+                <div className="mt-1.5 space-y-1">
+                  {blockedBy.map((d) => (
+                    <div key={d.item_id} className="flex items-center justify-between text-xs px-3 py-1.5 rounded-lg bg-red-500/5 border border-red-500/20">
+                      <span>
+                        <span className="text-red-400 font-mono">#{d.item_number}</span>{" "}
+                        {d.title}
+                      </span>
+                      <button
+                        onClick={() => handleRemoveDependency(d.item_number)}
+                        className="text-[var(--text-muted)] hover:text-red-400 transition-colors ml-2"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-2 items-center">
+              <select
+                value={depType}
+                onChange={(e) => setDepType(e.target.value as "blocks" | "blocked_by")}
+                className="input-base py-1.5 text-xs w-auto"
+              >
+                <option value="blocks">Blocks</option>
+                <option value="blocked_by">Blocked by</option>
+              </select>
+              <input
+                type="number"
+                value={depInput}
+                onChange={(e) => setDepInput(e.target.value)}
+                placeholder="Item #"
+                className="input-base py-1.5 text-xs w-20"
+                onKeyDown={(e) => e.key === "Enter" && handleAddDependency()}
+              />
+              <button
+                onClick={handleAddDependency}
+                className="text-xs px-3 py-1.5 rounded-lg bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] transition-colors"
+              >
+                Add
+              </button>
+            </div>
+          </div>
 
           {/* Custom Fields */}
           {fieldDefs.length > 0 && (
