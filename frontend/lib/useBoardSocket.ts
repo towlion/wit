@@ -17,7 +17,7 @@ export function useBoardSocket(
 ) {
   const [presence, setPresence] = useState<PresenceUser[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimer = useRef<ReturnType<typeof setTimeout>>();
+  const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onEventRef = useRef(onEvent);
   onEventRef.current = onEvent;
 
@@ -55,7 +55,7 @@ export function useBoardSocket(
   useEffect(() => {
     connect();
     return () => {
-      clearTimeout(reconnectTimer.current);
+      if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
       wsRef.current?.close();
       wsRef.current = null;
       setPresence([]);
