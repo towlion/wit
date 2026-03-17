@@ -3,7 +3,7 @@
 import { useEffect, useState, FormEvent } from "react";
 import { useParams } from "next/navigation";
 import { api } from "@/lib/api";
-import type { WorkflowState, Label, ItemTemplate, AutomationRule, Workspace, Member, WorkItem, RecurrenceRule } from "@/lib/types";
+import type { WorkflowState, Label, ItemTemplate, AutomationRule, Workspace, Member, WorkItem, RecurrenceRule, Sprint, ProjectMember } from "@/lib/types";
 import ImportModal from "@/components/ImportModal";
 import { useAuth } from "@/lib/auth";
 
@@ -58,6 +58,18 @@ export default function ProjectSettingsPage() {
   const [newRecItemNumber, setNewRecItemNumber] = useState("");
   const [newRecFrequency, setNewRecFrequency] = useState("weekly");
 
+  // Sprints
+  const [sprints, setSprints] = useState<Sprint[]>([]);
+  const [newSprintName, setNewSprintName] = useState("");
+  const [newSprintStart, setNewSprintStart] = useState("");
+  const [newSprintEnd, setNewSprintEnd] = useState("");
+  const [newSprintGoal, setNewSprintGoal] = useState("");
+
+  // Project members
+  const [projectMembers, setProjectMembers] = useState<ProjectMember[]>([]);
+  const [newMemberEmail, setNewMemberEmail] = useState("");
+  const [newMemberRole, setNewMemberRole] = useState("editor");
+
   // Import modal
   const [showImport, setShowImport] = useState(false);
 
@@ -70,6 +82,8 @@ export default function ProjectSettingsPage() {
     api.get<{ members: Member[] }>(`/workspaces/${wsSlug}`).then((ws) => setMembers(ws.members)).catch((e) => console.warn("Failed to load members:", e.message));
     api.get<RecurrenceRule[]>(`${basePath}/recurrences`).then(setRecurrences).catch((e) => console.warn("Failed to load recurrences:", e.message));
     api.get<WorkItem[]>(`${basePath}/items`).then(setItems).catch((e) => console.warn("Failed to load items:", e.message));
+    api.get<Sprint[]>(`${basePath}/sprints`).then(setSprints).catch((e) => console.warn("Failed to load sprints:", e.message));
+    api.get<ProjectMember[]>(`${basePath}/project-members`).then(setProjectMembers).catch((e) => console.warn("Failed to load project members:", e.message));
   }, [basePath, wsSlug]);
 
   async function addField(e: FormEvent) {
@@ -558,6 +572,157 @@ export default function ProjectSettingsPage() {
             <option value="daily">Daily</option>
             <option value="weekly">Weekly</option>
             <option value="monthly">Monthly</option>
+          </select>
+          <button type="submit" className="btn-primary">Add</button>
+        </form>
+      </section>
+
+      <div className="h-px bg-[var(--border)] mb-8" />
+
+      {/* Sprints */}
+      <section className="mb-8">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-3">Sprints</h2>
+        <div className="space-y-2 mb-4">
+          {sprints.map((s) => (
+            <div key={s.id} className="flex items-center justify-between p-3.5 card-surface">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="text-sm font-medium truncate">{s.name}</span>
+                <span className={`text-[10px] px-2 py-0.5 rounded-full border ${
+                  s.status === "active" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                    : s.status === "completed" ? "bg-zinc-500/10 text-zinc-400 border-zinc-500/20"
+                    : "bg-blue-500/10 text-blue-400 border-blue-500/20"
+                }`}>
+                  {s.status}
+                </span>
+                <span className="text-[11px] text-[var(--text-muted)]">
+                  {s.start_date} &mdash; {s.end_date}
+                </span>
+                <span className="text-[11px] text-[var(--text-muted)]">
+                  {s.completed_count}/{s.item_count} done
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                {s.status === "planning" && (
+                  <button
+                    onClick={async () => {
+                      const updated = await api.patch<Sprint>(`${basePath}/sprints/${s.id}`, { status: "active" });
+                      setSprints(sprints.map((x) => (x.id === s.id ? updated : x)));
+                    }}
+                    className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-colors"
+                  >
+                    Start
+                  </button>
+                )}
+                {s.status === "active" && (
+                  <button
+                    onClick={async () => {
+                      const updated = await api.patch<Sprint>(`${basePath}/sprints/${s.id}`, { status: "completed" });
+                      setSprints(sprints.map((x) => (x.id === s.id ? updated : x)));
+                    }}
+                    className="text-[10px] px-2 py-0.5 rounded bg-zinc-500/10 text-zinc-400 hover:bg-zinc-500/20 transition-colors"
+                  >
+                    Complete
+                  </button>
+                )}
+                <button
+                  onClick={async () => {
+                    await api.delete(`${basePath}/sprints/${s.id}`);
+                    setSprints(sprints.filter((x) => x.id !== s.id));
+                  }}
+                  className="text-xs text-red-400/70 hover:text-red-400 transition-colors"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            const sprint = await api.post<Sprint>(`${basePath}/sprints`, {
+              name: newSprintName,
+              start_date: newSprintStart,
+              end_date: newSprintEnd,
+              goal: newSprintGoal || null,
+            });
+            setSprints([...sprints, sprint]);
+            setNewSprintName("");
+            setNewSprintStart("");
+            setNewSprintEnd("");
+            setNewSprintGoal("");
+          }}
+          className="space-y-2"
+        >
+          <div className="flex gap-2">
+            <input type="text" value={newSprintName} onChange={(e) => setNewSprintName(e.target.value)} placeholder="Sprint name" required className="input-base flex-1" />
+          </div>
+          <div className="flex gap-2">
+            <input type="date" value={newSprintStart} onChange={(e) => setNewSprintStart(e.target.value)} required className="input-base flex-1" />
+            <input type="date" value={newSprintEnd} onChange={(e) => setNewSprintEnd(e.target.value)} required className="input-base flex-1" />
+          </div>
+          <div className="flex gap-2">
+            <input type="text" value={newSprintGoal} onChange={(e) => setNewSprintGoal(e.target.value)} placeholder="Sprint goal (optional)" className="input-base flex-1" />
+            <button type="submit" className="btn-primary">Add</button>
+          </div>
+        </form>
+      </section>
+
+      <div className="h-px bg-[var(--border)] mb-8" />
+
+      {/* Project Members */}
+      <section className="mb-8">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-3">Project members</h2>
+        <div className="space-y-2 mb-4">
+          {projectMembers.map((pm) => (
+            <div key={pm.user_id} className="flex items-center justify-between p-3.5 card-surface">
+              <div className="flex items-center gap-2.5">
+                <span className="text-sm font-medium">{pm.display_name}</span>
+                <span className="text-[11px] text-[var(--text-muted)]">{pm.email}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <select
+                  value={pm.role}
+                  onChange={async (e) => {
+                    const updated = await api.patch<ProjectMember>(`${basePath}/project-members/${pm.user_id}`, { role: e.target.value });
+                    setProjectMembers(projectMembers.map((x) => (x.user_id === pm.user_id ? updated : x)));
+                  }}
+                  className="input-base text-[10px] w-auto py-1"
+                >
+                  <option value="viewer">Viewer</option>
+                  <option value="editor">Editor</option>
+                  <option value="admin">Admin</option>
+                </select>
+                <button
+                  onClick={async () => {
+                    await api.delete(`${basePath}/project-members/${pm.user_id}`);
+                    setProjectMembers(projectMembers.filter((x) => x.user_id !== pm.user_id));
+                  }}
+                  className="text-xs text-red-400/70 hover:text-red-400 transition-colors"
+                >
+                  Remove
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            const pm = await api.post<ProjectMember>(`${basePath}/project-members`, {
+              email: newMemberEmail,
+              role: newMemberRole,
+            });
+            setProjectMembers([...projectMembers, pm]);
+            setNewMemberEmail("");
+          }}
+          className="flex gap-2"
+        >
+          <input type="email" value={newMemberEmail} onChange={(e) => setNewMemberEmail(e.target.value)} placeholder="Email" required className="input-base flex-1" />
+          <select value={newMemberRole} onChange={(e) => setNewMemberRole(e.target.value)} className="input-base w-auto">
+            <option value="viewer">Viewer</option>
+            <option value="editor">Editor</option>
+            <option value="admin">Admin</option>
           </select>
           <button type="submit" className="btn-primary">Add</button>
         </form>

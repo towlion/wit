@@ -33,14 +33,14 @@ def test_guest_cannot_create_items(client, project, db):
     # Add as guest directly via DB
     db.add(WorkspaceMember(workspace_id=ws_id, user_id=me2["id"], role="guest"))
     db.commit()
-    # Guest CAN view items (the API uses min_role="guest" by default in _resolve_project)
+    # Guest CAN view items (workspace membership allows read access)
     resp = client.get(f"/api/workspaces/{ws}/projects/{proj}/items", headers=_headers(token2))
     assert resp.status_code == 200
-    # Guest can create items (no min_role restriction on create in current implementation)
+    # Guest CANNOT create items (project-level role check requires editor or above)
     resp = client.post(f"/api/workspaces/{ws}/projects/{proj}/items", headers=_headers(token2), json={
         "title": "Guest item",
     })
-    assert resp.status_code == 201
+    assert resp.status_code == 403
 
 
 def test_member_can_create_items(client, project, db):

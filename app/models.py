@@ -202,6 +202,7 @@ class WorkItem(Base):
     )
     position: Mapped[str] = mapped_column(String(255), nullable=False, default="a0")
     due_date: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)
+    sprint_id: Mapped[int | None] = mapped_column(ForeignKey("sprints.id", ondelete="SET NULL"), nullable=True, index=True)
     archived: Mapped[bool] = mapped_column(Boolean, default=False)
     created_by_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     created_at: Mapped[datetime.datetime] = mapped_column(
@@ -234,7 +235,7 @@ class ActivityEvent(Base):
             "comment", "status_change", "priority_change",
             "assignee_added", "assignee_removed",
             "label_added", "label_removed",
-            "created", "archived",
+            "created", "archived", "due_date_change",
             name="activity_event_type",
         ),
         nullable=False,
@@ -475,6 +476,47 @@ class Subtask(Base):
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+
+
+class ProjectMember(Base):
+    __tablename__ = "project_members"
+    __table_args__ = (
+        UniqueConstraint("project_id", "user_id"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    role: Mapped[str] = mapped_column(
+        Enum("viewer", "editor", "admin", name="project_role"),
+        nullable=False,
+        default="editor",
+    )
+
+
+class Sprint(Base):
+    __tablename__ = "sprints"
+    __table_args__ = (
+        CheckConstraint("end_date >= start_date", name="ck_sprint_date_range"),
+        Index("ix_sprints_project_status", "project_id", "status"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    start_date: Mapped[datetime.date] = mapped_column(Date, nullable=False)
+    end_date: Mapped[datetime.date] = mapped_column(Date, nullable=False)
+    status: Mapped[str] = mapped_column(
+        Enum("planning", "active", "completed", name="sprint_status"),
+        nullable=False,
+        default="planning",
+    )
+    goal: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    project: Mapped["Project"] = relationship()
 
 
 class RecurrenceRule(Base):

@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo, useRef } from "react";
+import { useMemo, useRef, useState, useEffect, useCallback } from "react";
 import type { WorkItem, WorkflowState } from "@/lib/types";
 
 interface Props {
   items: WorkItem[];
   states: WorkflowState[];
   onCardClick: (item: WorkItem) => void;
+  onItemUpdate?: (itemNumber: number, data: Partial<WorkItem>) => Promise<void>;
 }
 
 const ROW_HEIGHT = 36;
@@ -28,8 +29,18 @@ function formatDate(d: Date): string {
   return `${d.getMonth() + 1}/${d.getDate()}`;
 }
 
-export default function TimelineView({ items, states, onCardClick }: Props) {
+function toDateString(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+export default function TimelineView({ items, states, onCardClick, onItemUpdate }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [dragState, setDragState] = useState<{
+    itemNumber: number;
+    startX: number;
+    originalEnd: Date;
+    deltaDays: number;
+  } | null>(null);
 
   const stateColorMap = useMemo(() => {
     const m: Record<number, string> = {};
@@ -113,6 +124,34 @@ export default function TimelineView({ items, states, onCardClick }: Props) {
 
   const todayOffset = daysBetween(startDate, new Date());
 
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!dragState) return;
+    const deltaX = e.clientX - dragState.startX;
+    const deltaDays = Math.round(deltaX / DAY_WIDTH);
+    setDragState((prev) => prev ? { ...prev, deltaDays } : null);
+  }, [dragState]);
+
+  const handleMouseUp = useCallback(() => {
+    if (!dragState || !onItemUpdate) return;
+    const newEnd = addDays(dragState.originalEnd, dragState.deltaDays);
+    const newDateStr = toDateString(newEnd);
+    if (dragState.deltaDays !== 0) {
+      onItemUpdate(dragState.itemNumber, { due_date: newDateStr } as Partial<WorkItem>);
+    }
+    setDragState(null);
+  }, [dragState, onItemUpdate]);
+
+  useEffect(() => {
+    if (dragState) {
+      window.addEventListener("mousemove", handleMouseMove);
+      window.addEventListener("mouseup", handleMouseUp);
+      return () => {
+        window.removeEventListener("mousemove", handleMouseMove);
+        window.removeEventListener("mouseup", handleMouseUp);
+      };
+    }
+  }, [dragState, handleMouseMove, handleMouseUp]);
+
   return (
     <div className="flex-1 overflow-auto" ref={scrollRef}>
       <svg
@@ -164,13 +203,15 @@ export default function TimelineView({ items, states, onCardClick }: Props) {
           const y = HEADER_HEIGHT + idx * ROW_HEIGHT;
           const startDay = daysBetween(startDate, ti.start);
           const endDay = daysBetween(startDate, ti.end);
+          const isDragging = dragState?.itemNumber === ti.item.item_number;
+          const adjustedEndDay = isDragging ? endDay + dragState.deltaDays : endDay;
           const barX = LABEL_WIDTH + startDay * DAY_WIDTH;
-          const barWidth = Math.max((endDay - startDay + 1) * DAY_WIDTH - 4, 8);
+          const barWidth = Math.max((adjustedEndDay - startDay + 1) * DAY_WIDTH - 4, 8);
           const color = stateColorMap[ti.item.status_id] || "#6b7280";
 
           return (
             <g key={ti.item.id}>
-              {/* Row background on hover — using a transparent rect */}
+              {/* Row background on hover */}
               <rect
                 x={0}
                 y={y}
@@ -201,14 +242,36 @@ export default function TimelineView({ items, states, onCardClick }: Props) {
                 height={ROW_HEIGHT - 12}
                 rx={4}
                 fill={color}
-                opacity={0.8}
+                opacity={isDragging ? 0.5 : 0.8}
                 className="cursor-pointer hover:opacity-100 transition-opacity"
                 onClick={() => onCardClick(ti.item)}
                 strokeDasharray={ti.hasDueDate ? undefined : "4 2"}
                 stroke={ti.hasDueDate ? undefined : color}
                 strokeWidth={ti.hasDueDate ? undefined : 1.5}
-                fillOpacity={ti.hasDueDate ? 0.8 : 0.2}
+                fillOpacity={ti.hasDueDate ? (isDragging ? 0.5 : 0.8) : 0.2}
               />
+
+              {/* Drag handle at right edge of bar (only for items with due dates) */}
+              {ti.hasDueDate && onItemUpdate && (
+                <rect
+                  x={barX + barWidth - 8}
+                  y={y + 6}
+                  width={8}
+                  height={ROW_HEIGHT - 12}
+                  rx={2}
+                  fill="transparent"
+                  cursor="ew-resize"
+                  onMouseDown={(e) => {
+                    e.stopPropagation();
+                    setDragState({
+                      itemNumber: ti.item.item_number,
+                      startX: e.clientX,
+                      originalEnd: ti.end,
+                      deltaDays: 0,
+                    });
+                  }}
+                />
+              )}
 
               {/* Row separator */}
               <line x1={0} y1={y + ROW_HEIGHT} x2={svgWidth} y2={y + ROW_HEIGHT} stroke="var(--border)" strokeWidth={0.5} opacity={0.2} />

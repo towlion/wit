@@ -3,7 +3,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.deps import get_current_user, get_workspace_member
+from app.deps import get_current_user, get_project_role, get_workspace_member
 from app.models import Attachment, Project, User, Workspace, WorkItem
 from app.schemas import AttachmentResponse
 from app.storage import delete_file, get_presigned_url, upload_file
@@ -13,7 +13,7 @@ router = APIRouter(tags=["attachments"])
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 
 
-def _resolve_item(ws_slug: str, project_slug: str, item_number: int, user: User, db: Session) -> WorkItem:
+def _resolve_item(ws_slug: str, project_slug: str, item_number: int, user: User, db: Session, min_role: str = "viewer") -> WorkItem:
     ws = db.query(Workspace).filter_by(slug=ws_slug).first()
     if not ws:
         raise HTTPException(status_code=404, detail="Workspace not found")
@@ -21,6 +21,8 @@ def _resolve_item(ws_slug: str, project_slug: str, item_number: int, user: User,
     project = db.query(Project).filter_by(workspace_id=ws.id, slug=project_slug).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+    if min_role != "viewer":
+        get_project_role(project.id, user.id, db, ws.id, min_role=min_role)
     item = db.query(WorkItem).filter_by(project_id=project.id, item_number=item_number).first()
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
@@ -60,7 +62,7 @@ async def upload_attachment(
 
     - **413**: File too large
     """
-    item = _resolve_item(ws_slug, project_slug, item_number, user, db)
+    item = _resolve_item(ws_slug, project_slug, item_number, user, db, min_role="editor")
 
     data = await file.read()
     if len(data) > MAX_FILE_SIZE:
@@ -120,7 +122,7 @@ def delete_attachment(
 
     - **403**: Can only delete own attachments
     """
-    item = _resolve_item(ws_slug, project_slug, item_number, user, db)
+    item = _resolve_item(ws_slug, project_slug, item_number, user, db, min_role="editor")
     att = db.query(Attachment).filter_by(id=attachment_id, work_item_id=item.id).first()
     if not att:
         raise HTTPException(status_code=404, detail="Attachment not found")

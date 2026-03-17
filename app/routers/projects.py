@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.deps import get_current_user, get_workspace_member
-from app.models import Project, User, Workspace, WorkflowState
+from app.deps import get_current_user, get_project_role, get_workspace_member
+from app.models import Project, ProjectMember, User, Workspace, WorkflowState, WorkspaceMember
 from app.schemas import ProjectCreate, ProjectResponse, ProjectUpdate
 
 router = APIRouter(tags=["projects"])
@@ -95,12 +95,26 @@ def get_project(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Get project details."""
+    """Get project details with the caller's effective role."""
     ws = _get_workspace(ws_slug, user, db)
     project = db.query(Project).filter_by(workspace_id=ws.id, slug=project_slug).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-    return project
+    # Compute effective role for the current user
+    ws_member = db.query(WorkspaceMember).filter_by(workspace_id=ws.id, user_id=user.id).first()
+    if ws_member and ws_member.role in ("owner", "admin"):
+        effective_role = "admin"
+    else:
+        pm = db.query(ProjectMember).filter_by(project_id=project.id, user_id=user.id).first()
+        if pm:
+            effective_role = pm.role
+        elif ws_member and ws_member.role == "guest":
+            effective_role = "viewer"
+        else:
+            effective_role = "editor"
+    data = ProjectResponse.model_validate(project).model_dump()
+    data["user_role"] = effective_role
+    return data
 
 
 @router.patch("/workspaces/{ws_slug}/projects/{project_slug}", response_model=ProjectResponse)

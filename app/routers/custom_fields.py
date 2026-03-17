@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.deps import get_current_user, get_workspace_member
+from app.deps import get_current_user, get_project_role, get_workspace_member
 from app.models import CustomFieldDefinition, CustomFieldValue, Project, User, Workspace, WorkItem
 from app.schemas import (
     CustomFieldDefinitionCreate,
@@ -15,7 +15,7 @@ from app.schemas import (
 router = APIRouter(tags=["custom_fields"])
 
 
-def _resolve_project(ws_slug: str, project_slug: str, user: User, db: Session) -> Project:
+def _resolve_project(ws_slug: str, project_slug: str, user: User, db: Session, min_role: str = "viewer") -> Project:
     ws = db.query(Workspace).filter_by(slug=ws_slug).first()
     if not ws:
         raise HTTPException(status_code=404, detail="Workspace not found")
@@ -23,6 +23,8 @@ def _resolve_project(ws_slug: str, project_slug: str, user: User, db: Session) -
     project = db.query(Project).filter_by(workspace_id=ws.id, slug=project_slug).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+    if min_role != "viewer":
+        get_project_role(project.id, user.id, db, ws.id, min_role=min_role)
     return project
 
 
@@ -64,9 +66,7 @@ def create_field(
 
     - **409**: Field name already exists
     """
-    project = _resolve_project(ws_slug, project_slug, user, db)
-    ws = db.query(Workspace).filter_by(slug=ws_slug).first()
-    get_workspace_member(ws.id, user.id, db, min_role="admin")
+    project = _resolve_project(ws_slug, project_slug, user, db, min_role="admin")
 
     existing = db.query(CustomFieldDefinition).filter_by(project_id=project.id, name=body.name).first()
     if existing:
@@ -99,9 +99,7 @@ def update_field(
     db: Session = Depends(get_db),
 ):
     """Update a custom field definition. Requires admin role."""
-    project = _resolve_project(ws_slug, project_slug, user, db)
-    ws = db.query(Workspace).filter_by(slug=ws_slug).first()
-    get_workspace_member(ws.id, user.id, db, min_role="admin")
+    project = _resolve_project(ws_slug, project_slug, user, db, min_role="admin")
 
     field = db.query(CustomFieldDefinition).filter_by(id=field_id, project_id=project.id).first()
     if not field:
@@ -127,9 +125,7 @@ def delete_field(
     db: Session = Depends(get_db),
 ):
     """Delete a custom field definition and all its values. Requires admin role."""
-    project = _resolve_project(ws_slug, project_slug, user, db)
-    ws = db.query(Workspace).filter_by(slug=ws_slug).first()
-    get_workspace_member(ws.id, user.id, db, min_role="admin")
+    project = _resolve_project(ws_slug, project_slug, user, db, min_role="admin")
 
     field = db.query(CustomFieldDefinition).filter_by(id=field_id, project_id=project.id).first()
     if not field:
@@ -173,7 +169,7 @@ def set_field_value(
     db: Session = Depends(get_db),
 ):
     """Set a custom field value on a work item (upsert)."""
-    project = _resolve_project(ws_slug, project_slug, user, db)
+    project = _resolve_project(ws_slug, project_slug, user, db, min_role="editor")
     item = db.query(WorkItem).filter_by(project_id=project.id, item_number=item_number).first()
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
@@ -207,7 +203,7 @@ def clear_field_value(
     db: Session = Depends(get_db),
 ):
     """Clear a custom field value from a work item."""
-    project = _resolve_project(ws_slug, project_slug, user, db)
+    project = _resolve_project(ws_slug, project_slug, user, db, min_role="editor")
     item = db.query(WorkItem).filter_by(project_id=project.id, item_number=item_number).first()
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")

@@ -10,7 +10,7 @@ import asyncio
 from app.activity import record_activity
 from app.automation import run_status_automations
 from app.database import get_db
-from app.deps import get_current_user, get_workspace_member
+from app.deps import get_current_user, get_project_role, get_workspace_member
 from app.models import Label, Project, Subtask, User, Workspace, WorkflowState, WorkItem, WorkItemAssignee, WorkItemDependency, WorkItemLabel
 from app.schemas import DependencyCreate, DependencyItem, DependencyResponse, SubtaskCreate, SubtaskResponse, SubtaskUpdate, WorkItemCreate, WorkItemResponse, WorkItemUpdate
 
@@ -62,7 +62,7 @@ def _item_response(db: Session, item: WorkItem) -> dict:
     return data
 
 
-def _resolve_project(ws_slug: str, project_slug: str, user: User, db: Session) -> Project:
+def _resolve_project(ws_slug: str, project_slug: str, user: User, db: Session, min_role: str = "viewer") -> Project:
     ws = db.query(Workspace).filter_by(slug=ws_slug).first()
     if not ws:
         raise HTTPException(status_code=404, detail="Workspace not found")
@@ -70,6 +70,8 @@ def _resolve_project(ws_slug: str, project_slug: str, user: User, db: Session) -
     project = db.query(Project).filter_by(workspace_id=ws.id, slug=project_slug).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+    if min_role != "viewer":
+        get_project_role(project.id, user.id, db, ws.id, min_role=min_role)
     return project
 
 
@@ -169,7 +171,7 @@ def create_item(
 
     Assigns an auto-incrementing item number and defaults to the first workflow state.
     """
-    project = _resolve_project(ws_slug, project_slug, user, db)
+    project = _resolve_project(ws_slug, project_slug, user, db, min_role="editor")
 
     # Atomically increment item_counter
     project.item_counter += 1
@@ -188,6 +190,7 @@ def create_item(
         status_id=status_id,
         priority=body.priority,
         due_date=body.due_date,
+        sprint_id=body.sprint_id,
         created_by_id=user.id,
     )
     db.add(item)
@@ -234,7 +237,7 @@ def update_item(
 
     Triggers automation rules on status changes.
     """
-    project = _resolve_project(ws_slug, project_slug, user, db)
+    project = _resolve_project(ws_slug, project_slug, user, db, min_role="editor")
     item = db.query(WorkItem).filter_by(project_id=project.id, item_number=item_number).first()
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
@@ -258,10 +261,16 @@ def update_item(
             old_value=item.priority, new_value=update_data["priority"],
         )
 
+    if "due_date" in update_data:
+        old_due = str(item.due_date) if item.due_date else "none"
+        new_due = str(update_data["due_date"]) if update_data["due_date"] else "none"
+        if old_due != new_due:
+            record_activity(db, item.id, user.id, "due_date_change", old_value=old_due, new_value=new_due)
+
     if "archived" in update_data and update_data["archived"] and not item.archived:
         record_activity(db, item.id, user.id, "archived")
 
-    for field in ("title", "description", "status_id", "priority", "position", "archived", "due_date"):
+    for field in ("title", "description", "status_id", "priority", "position", "archived", "due_date", "sprint_id"):
         if field in update_data:
             setattr(item, field, update_data[field])
 
@@ -286,7 +295,7 @@ def delete_item(
     db: Session = Depends(get_db),
 ):
     """Permanently delete a work item."""
-    project = _resolve_project(ws_slug, project_slug, user, db)
+    project = _resolve_project(ws_slug, project_slug, user, db, min_role="editor")
     item = db.query(WorkItem).filter_by(project_id=project.id, item_number=item_number).first()
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
@@ -313,7 +322,7 @@ def add_assignee(
 
     - **409**: Already assigned
     """
-    project = _resolve_project(ws_slug, project_slug, user, db)
+    project = _resolve_project(ws_slug, project_slug, user, db, min_role="editor")
     item = db.query(WorkItem).filter_by(project_id=project.id, item_number=item_number).first()
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
@@ -343,7 +352,7 @@ def remove_assignee(
     db: Session = Depends(get_db),
 ):
     """Remove a user's assignment from a work item."""
-    project = _resolve_project(ws_slug, project_slug, user, db)
+    project = _resolve_project(ws_slug, project_slug, user, db, min_role="editor")
     item = db.query(WorkItem).filter_by(project_id=project.id, item_number=item_number).first()
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
@@ -377,7 +386,7 @@ def add_item_label(
 
     - **409**: Label already applied
     """
-    project = _resolve_project(ws_slug, project_slug, user, db)
+    project = _resolve_project(ws_slug, project_slug, user, db, min_role="editor")
     item = db.query(WorkItem).filter_by(project_id=project.id, item_number=item_number).first()
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
@@ -409,7 +418,7 @@ def remove_item_label(
     db: Session = Depends(get_db),
 ):
     """Remove a label from a work item."""
-    project = _resolve_project(ws_slug, project_slug, user, db)
+    project = _resolve_project(ws_slug, project_slug, user, db, min_role="editor")
     item = db.query(WorkItem).filter_by(project_id=project.id, item_number=item_number).first()
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
@@ -483,7 +492,7 @@ def add_dependency(
     - **400**: Self-dependency
     - **409**: Already exists or would create a cycle
     """
-    project = _resolve_project(ws_slug, project_slug, user, db)
+    project = _resolve_project(ws_slug, project_slug, user, db, min_role="editor")
     item = db.query(WorkItem).filter_by(project_id=project.id, item_number=item_number).first()
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
@@ -519,7 +528,7 @@ def remove_dependency(
     db: Session = Depends(get_db),
 ):
     """Remove a dependency between two items (either direction)."""
-    project = _resolve_project(ws_slug, project_slug, user, db)
+    project = _resolve_project(ws_slug, project_slug, user, db, min_role="editor")
     item = db.query(WorkItem).filter_by(project_id=project.id, item_number=item_number).first()
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
@@ -572,7 +581,7 @@ def create_subtask(
     db: Session = Depends(get_db),
 ):
     """Create a subtask / checklist item. Auto-positioned at the end."""
-    project = _resolve_project(ws_slug, project_slug, user, db)
+    project = _resolve_project(ws_slug, project_slug, user, db, min_role="editor")
     item = db.query(WorkItem).filter_by(project_id=project.id, item_number=item_number).first()
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
@@ -605,7 +614,7 @@ def update_subtask(
     db: Session = Depends(get_db),
 ):
     """Update a subtask's title, position, or completion status."""
-    project = _resolve_project(ws_slug, project_slug, user, db)
+    project = _resolve_project(ws_slug, project_slug, user, db, min_role="editor")
     item = db.query(WorkItem).filter_by(project_id=project.id, item_number=item_number).first()
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
@@ -639,7 +648,7 @@ def delete_subtask(
     db: Session = Depends(get_db),
 ):
     """Delete a subtask."""
-    project = _resolve_project(ws_slug, project_slug, user, db)
+    project = _resolve_project(ws_slug, project_slug, user, db, min_role="editor")
     item = db.query(WorkItem).filter_by(project_id=project.id, item_number=item_number).first()
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")

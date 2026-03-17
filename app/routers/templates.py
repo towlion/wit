@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.deps import get_current_user, get_workspace_member
+from app.deps import get_current_user, get_project_role, get_workspace_member
 from app.models import AutomationRule, ItemTemplate, Project, User, Workspace
 from app.schemas import (
     AutomationRuleCreate,
@@ -16,14 +16,16 @@ from app.schemas import (
 router = APIRouter(tags=["templates"])
 
 
-def _resolve_project(ws_slug: str, project_slug: str, user: User, db: Session, min_role: str = "member") -> Project:
+def _resolve_project(ws_slug: str, project_slug: str, user: User, db: Session, min_role: str = "viewer") -> Project:
     ws = db.query(Workspace).filter_by(slug=ws_slug).first()
     if not ws:
         raise HTTPException(status_code=404, detail="Workspace not found")
-    get_workspace_member(ws.id, user.id, db, min_role=min_role)
+    get_workspace_member(ws.id, user.id, db)
     project = db.query(Project).filter_by(workspace_id=ws.id, slug=project_slug).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+    if min_role != "viewer":
+        get_project_role(project.id, user.id, db, ws.id, min_role=min_role)
     return project
 
 
@@ -57,7 +59,7 @@ def create_template(
     db: Session = Depends(get_db),
 ):
     """Create an item template with default values for new items."""
-    project = _resolve_project(ws_slug, project_slug, user, db)
+    project = _resolve_project(ws_slug, project_slug, user, db, min_role="admin")
     tmpl = ItemTemplate(
         project_id=project.id,
         name=body.name,
@@ -85,7 +87,7 @@ def update_template(
     db: Session = Depends(get_db),
 ):
     """Update an item template."""
-    project = _resolve_project(ws_slug, project_slug, user, db)
+    project = _resolve_project(ws_slug, project_slug, user, db, min_role="admin")
     tmpl = db.query(ItemTemplate).filter_by(id=template_id, project_id=project.id).first()
     if not tmpl:
         raise HTTPException(status_code=404, detail="Template not found")
@@ -110,7 +112,7 @@ def delete_template(
     db: Session = Depends(get_db),
 ):
     """Delete an item template."""
-    project = _resolve_project(ws_slug, project_slug, user, db)
+    project = _resolve_project(ws_slug, project_slug, user, db, min_role="admin")
     tmpl = db.query(ItemTemplate).filter_by(id=template_id, project_id=project.id).first()
     if not tmpl:
         raise HTTPException(status_code=404, detail="Template not found")

@@ -3,13 +3,14 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
-import type { WorkflowState, WorkItem, Label, Workspace, BulkOperationResult, Project, BoardSettings, ItemTemplate } from "@/lib/types";
+import type { WorkflowState, WorkItem, Label, Workspace, BulkOperationResult, Project, BoardSettings, ItemTemplate, Sprint } from "@/lib/types";
 import Board from "@/components/Board";
 import CardDetail from "@/components/CardDetail";
 import FilterBar, { Filters } from "@/components/FilterBar";
 import CalendarView from "@/components/CalendarView";
 import DependencyGraph from "@/components/DependencyGraph";
 import TimelineView from "@/components/TimelineView";
+import SprintBacklog from "@/components/SprintBacklog";
 import SearchModal from "@/components/SearchModal";
 import ShortcutHelp from "@/components/ShortcutHelp";
 import BulkToolbar from "@/components/BulkToolbar";
@@ -20,7 +21,7 @@ import { useAuth } from "@/lib/auth";
 import { useToast } from "@/lib/toast";
 import Link from "next/link";
 
-type ViewMode = "board" | "calendar" | "dependencies" | "timeline";
+type ViewMode = "board" | "calendar" | "dependencies" | "timeline" | "backlog";
 
 export default function ProjectBoardPage() {
   const params = useParams();
@@ -64,10 +65,15 @@ export default function ProjectBoardPage() {
     swimlane: null,
     card_display: { show_priority: true, show_due_date: true, show_labels: true, show_assignees: true, show_description: false },
   });
+  const [sprints, setSprints] = useState<Sprint[]>([]);
+  const [sprintFilter, setSprintFilter] = useState<number | "">("");
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   // Determine if user is admin/owner in this workspace
-  const userRole = workspace?.members.find((m) => m.user_id === user?.id)?.role;
-  const isAdmin = userRole === "admin" || userRole === "owner";
+  const wsRole = workspace?.members.find((m) => m.user_id === user?.id)?.role;
+  const effectiveRole = userRole || wsRole;
+  const isAdmin = effectiveRole === "admin" || effectiveRole === "owner";
+  const canEdit = effectiveRole !== "viewer";
 
   const shortcuts: Shortcut[] = useMemo(
     () => [
@@ -97,8 +103,10 @@ export default function ProjectBoardPage() {
     api.get<Project>(basePath).then((p) => {
       setProjectId(p.id);
       if (p.board_settings) setBoardSettings(p.board_settings);
+      if (p.user_role) setUserRole(p.user_role);
     }).catch((e) => console.warn("Failed to load project:", e.message));
     api.get<ItemTemplate[]>(`${basePath}/templates`).then(setTemplates).catch((e) => console.warn("Failed to load templates:", e.message));
+    api.get<Sprint[]>(`${basePath}/sprints`).then(setSprints).catch((e) => console.warn("Failed to load sprints:", e.message));
   }, [loadData, basePath]);
 
   useEffect(() => {
@@ -144,6 +152,7 @@ export default function ProjectBoardPage() {
       const today = new Date().toISOString().split("T")[0];
       if (!item.due_date || item.due_date >= today) return false;
     }
+    if (sprintFilter && item.sprint_id !== sprintFilter) return false;
     return true;
   });
 
@@ -284,18 +293,42 @@ export default function ProjectBoardPage() {
             >
               Timeline
             </button>
+            <button
+              onClick={() => setViewMode("backlog")}
+              className={`text-[10px] px-2.5 py-1.5 font-medium transition-colors ${
+                viewMode === "backlog"
+                  ? "bg-[var(--accent-subtle)] text-[var(--accent-hover)]"
+                  : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
+              }`}
+            >
+              Backlog
+            </button>
           </div>
           {viewMode === "board" && (
-            <select
-              value={boardSettings.swimlane || ""}
-              onChange={(e) => updateBoardSettings({ ...boardSettings, swimlane: (e.target.value || null) as BoardSettings["swimlane"] })}
-              className="input-base text-[10px] w-auto py-1.5"
-            >
-              <option value="">No swimlanes</option>
-              <option value="priority">By priority</option>
-              <option value="assignee">By assignee</option>
-              <option value="label">By label</option>
-            </select>
+            <>
+              <select
+                value={boardSettings.swimlane || ""}
+                onChange={(e) => updateBoardSettings({ ...boardSettings, swimlane: (e.target.value || null) as BoardSettings["swimlane"] })}
+                className="input-base text-[10px] w-auto py-1.5"
+              >
+                <option value="">No swimlanes</option>
+                <option value="priority">By priority</option>
+                <option value="assignee">By assignee</option>
+                <option value="label">By label</option>
+              </select>
+              {sprints.length > 0 && (
+                <select
+                  value={sprintFilter}
+                  onChange={(e) => setSprintFilter(e.target.value ? parseInt(e.target.value) : "")}
+                  className="input-base text-[10px] w-auto py-1.5"
+                >
+                  <option value="">All sprints</option>
+                  {sprints.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              )}
+            </>
           )}
         </div>
         <div className="flex items-center gap-2">
@@ -384,6 +417,15 @@ export default function ProjectBoardPage() {
           items={filteredItems}
           states={states}
           onCardClick={setSelectedItem}
+          onItemUpdate={onItemUpdate}
+        />
+      ) : viewMode === "backlog" ? (
+        <SprintBacklog
+          items={filteredItems}
+          basePath={basePath}
+          onItemUpdate={onItemUpdate}
+          onCardClick={setSelectedItem}
+          canEdit={canEdit}
         />
       ) : (
         <CalendarView
@@ -391,9 +433,10 @@ export default function ProjectBoardPage() {
           month={calendarMonth}
           onMonthChange={setCalendarMonth}
           onCardClick={setSelectedItem}
+          onItemUpdate={onItemUpdate}
         />
       )}
-      {selectedItem && (viewMode === "calendar" || viewMode === "dependencies" || viewMode === "timeline") && (
+      {selectedItem && (viewMode === "calendar" || viewMode === "dependencies" || viewMode === "timeline" || viewMode === "backlog") && (
         <CardDetail
           item={selectedItem}
           basePath={basePath}

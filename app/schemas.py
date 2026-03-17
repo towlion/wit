@@ -149,6 +149,7 @@ class ProjectResponse(BaseModel):
     item_counter: int = Field(description="Next item number counter")
     board_settings: BoardSettings | None = None
     created_at: datetime
+    user_role: str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -213,6 +214,7 @@ class WorkItemCreate(BaseModel):
     status_id: int | None = Field(default=None, description="Workflow state ID (defaults to first state)")
     priority: str = Field(default="medium", description="Priority: low, medium, high, or critical")
     due_date: date | None = Field(default=None, description="Due date (YYYY-MM-DD)")
+    sprint_id: int | None = Field(default=None, description="Sprint ID")
 
 
 class WorkItemUpdate(BaseModel):
@@ -224,6 +226,7 @@ class WorkItemUpdate(BaseModel):
     position: str | None = Field(default=None, description="Lexorank position string")
     archived: bool | None = None
     due_date: date | None = None
+    sprint_id: int | None = None
 
 
 class WorkItemAssigneeResponse(BaseModel):
@@ -267,6 +270,7 @@ class WorkItemResponse(BaseModel):
     created_by_id: int
     created_at: datetime
     due_date: date | None = None
+    sprint_id: int | None = None
     assignees: list[WorkItemAssigneeResponse] = []
     labels: list[LabelResponse] = []
     blocks: list[DependencyItem] = []
@@ -849,3 +853,67 @@ class ImportJsonResponse(BaseModel):
     created: int
     states_created: int
     labels_created: int
+
+
+# --- Sprints ---
+class SprintCreate(BaseModel):
+    """Create a sprint."""
+    name: str = Field(description="Sprint name", examples=["Sprint 1"])
+    start_date: date = Field(description="Sprint start date")
+    end_date: date = Field(description="Sprint end date")
+    goal: str | None = Field(default=None, description="Sprint goal")
+
+
+class SprintUpdate(BaseModel):
+    """Update a sprint."""
+    name: str | None = None
+    start_date: date | None = None
+    end_date: date | None = None
+    status: str | None = Field(default=None, description="Status: planning, active, or completed")
+    goal: str | None = None
+
+
+class SprintResponse(BaseModel):
+    """Sprint details with item counts."""
+    id: int
+    project_id: int
+    name: str
+    start_date: date
+    end_date: date
+    status: str
+    goal: str | None
+    created_at: datetime
+    item_count: int = 0
+    completed_count: int = 0
+
+    model_config = {"from_attributes": True}
+
+
+class SprintVelocityItem(BaseModel):
+    """Velocity data for a sprint."""
+    sprint_id: int
+    sprint_name: str
+    total_items: int
+    completed_items: int
+
+
+# --- Project Members ---
+class ProjectMemberCreate(BaseModel):
+    """Add a member to a project."""
+    email: str = Field(description="Email of the user to add")
+    role: str = Field(default="editor", description="Role: viewer, editor, or admin")
+
+
+class ProjectMemberUpdate(BaseModel):
+    """Update a project member's role."""
+    role: str = Field(description="New role: viewer, editor, or admin")
+
+
+class ProjectMemberResponse(BaseModel):
+    """Project member with effective role."""
+    user_id: int
+    email: str
+    display_name: str
+    role: str
+
+    model_config = {"from_attributes": True}

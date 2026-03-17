@@ -11,10 +11,10 @@ from app.schemas import ActivityEventResponse, CommentCreate, CommentUpdate
 router = APIRouter(tags=["activity"])
 
 
-def _resolve_item(ws_slug: str, project_slug: str, item_number: int, user: User, db: Session) -> WorkItem:
+def _resolve_item(ws_slug: str, project_slug: str, item_number: int, user: User, db: Session, min_role: str = "viewer") -> WorkItem:
     from app.routers.work_items import _resolve_project
 
-    project = _resolve_project(ws_slug, project_slug, user, db)
+    project = _resolve_project(ws_slug, project_slug, user, db, min_role=min_role)
     item = db.query(WorkItem).filter_by(project_id=project.id, item_number=item_number).first()
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
@@ -63,7 +63,7 @@ def create_comment(
 
     Auto-watches the commenter and processes @mentions.
     """
-    item = _resolve_item(ws_slug, project_slug, item_number, user, db)
+    item = _resolve_item(ws_slug, project_slug, item_number, user, db, min_role="editor")
     event = record_activity(db, item.id, user.id, "comment", body=body.body)
 
     # Auto-watch on comment
@@ -127,7 +127,7 @@ def update_comment(
 
     - **403**: Can only edit own comments
     """
-    item = _resolve_item(ws_slug, project_slug, item_number, user, db)
+    item = _resolve_item(ws_slug, project_slug, item_number, user, db, min_role="editor")
     event = db.query(ActivityEvent).filter_by(id=comment_id, work_item_id=item.id, event_type="comment").first()
     if not event:
         raise HTTPException(status_code=404, detail="Comment not found")
@@ -155,7 +155,7 @@ def delete_comment(
 
     - **403**: Can only delete own comments
     """
-    item = _resolve_item(ws_slug, project_slug, item_number, user, db)
+    item = _resolve_item(ws_slug, project_slug, item_number, user, db, min_role="editor")
     event = db.query(ActivityEvent).filter_by(id=comment_id, work_item_id=item.id, event_type="comment").first()
     if not event:
         raise HTTPException(status_code=404, detail="Comment not found")

@@ -12,8 +12,8 @@ from slowapi.util import get_remote_address
 
 from app.routers import (
     activity, admin, api_tokens, attachments, auth, custom_fields, importexport, insights,
-    invites, labels, members, notifications, profile, projects, recurrences, saved_views,
-    search, states, templates, watchers, webhooks, work_items, workspaces,
+    invites, labels, members, notifications, profile, project_members, projects, recurrences,
+    saved_views, search, sprints, states, templates, watchers, webhooks, work_items, workspaces,
 )
 
 # Configure structured JSON logging
@@ -112,6 +112,8 @@ app.include_router(watchers.router, prefix="/api")
 app.include_router(members.router, prefix="/api")
 app.include_router(saved_views.router, prefix="/api")
 app.include_router(recurrences.router, prefix="/api")
+app.include_router(sprints.router, prefix="/api")
+app.include_router(project_members.router, prefix="/api")
 app.include_router(importexport.router, prefix="/api")
 
 

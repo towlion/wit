@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import decode_token, hash_api_token
 from app.database import get_db
-from app.models import ApiToken, User, WorkspaceMember
+from app.models import ApiToken, ProjectMember, User, WorkspaceMember
 
 security = HTTPBearer()
 
@@ -66,3 +66,52 @@ def get_workspace_member(
     if ROLE_HIERARCHY.get(member.role, 99) > ROLE_HIERARCHY.get(min_role, 99):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
     return member
+
+
+PROJECT_ROLE_HIERARCHY = {"admin": 0, "editor": 1, "viewer": 2}
+
+
+def get_project_role(
+    project_id: int,
+    user_id: int,
+    db: Session,
+    workspace_id: int,
+    min_role: str = "viewer",
+) -> str:
+    """Check project-level permissions. Returns effective role.
+
+    Rules:
+    - Workspace owner/admin -> project admin (always)
+    - Explicit ProjectMember record -> use that role
+    - Workspace member (no record) -> editor (backward compat)
+    - Workspace guest (no record) -> 403
+    """
+    ws_member = (
+        db.query(WorkspaceMember)
+        .filter_by(workspace_id=workspace_id, user_id=user_id)
+        .first()
+    )
+    if ws_member is None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not a workspace member")
+
+    # Workspace owner/admin always gets project admin
+    if ws_member.role in ("owner", "admin"):
+        return "admin"
+
+    # Check explicit project membership
+    pm = (
+        db.query(ProjectMember)
+        .filter_by(project_id=project_id, user_id=user_id)
+        .first()
+    )
+    if pm:
+        role = pm.role
+    elif ws_member.role == "guest":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No project access")
+    else:
+        # Regular workspace member with no explicit project role -> editor
+        role = "editor"
+
+    if PROJECT_ROLE_HIERARCHY.get(role, 99) > PROJECT_ROLE_HIERARCHY.get(min_role, 99):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient project role")
+    return role

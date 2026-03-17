@@ -55,6 +55,7 @@ export interface Project {
   item_counter: number;
   board_settings: BoardSettings | null;
   created_at: string;
+  user_role?: string | null;
 }
 
 export interface WorkflowState {
@@ -115,6 +116,7 @@ export interface WorkItem {
   created_by_id: number;
   created_at: string;
   due_date: string | null;
+  sprint_id: number | null;
   assignees: User[];
   labels: Label[];
   blocks: DependencyItem[];
@@ -350,6 +352,28 @@ export interface RecurrenceRule {
   next_run_at: string;
   enabled: boolean;
   created_at: string;
+}
+
+// --- Sprints ---
+export interface Sprint {
+  id: number;
+  project_id: number;
+  name: string;
+  start_date: string;
+  end_date: string;
+  status: "planning" | "active" | "completed";
+  goal: string | null;
+  created_at: string;
+  item_count: number;
+  completed_count: number;
+}
+
+// --- Project Members ---
+export interface ProjectMember {
+  user_id: number;
+  email: string;
+  display_name: string;
+  role: string;
 }
 
 // --- Import/Export ---
