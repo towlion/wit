@@ -365,6 +365,26 @@ def list_dependencies(
     return _get_dependencies(db, item.id)
 
 
+def _would_create_cycle(db: Session, blocking_id: int, blocked_id: int) -> bool:
+    """Check if adding blocking_id→blocked_id would create a cycle."""
+    visited: set[int] = set()
+    queue = [blocked_id]
+    while queue:
+        current = queue.pop(0)
+        if current == blocking_id:
+            return True
+        if current in visited:
+            continue
+        visited.add(current)
+        successors = (
+            db.query(WorkItemDependency.blocked_item_id)
+            .filter(WorkItemDependency.blocking_item_id == current)
+            .all()
+        )
+        queue.extend(s[0] for s in successors)
+    return False
+
+
 @router.post(
     "/workspaces/{ws_slug}/projects/{project_slug}/items/{item_number}/dependencies",
     status_code=status.HTTP_201_CREATED,
@@ -391,6 +411,8 @@ def add_dependency(
     ).first()
     if existing:
         raise HTTPException(status_code=409, detail="Dependency already exists")
+    if _would_create_cycle(db, item.id, blocked.id):
+        raise HTTPException(status_code=409, detail="Dependency would create a cycle")
     db.add(WorkItemDependency(blocking_item_id=item.id, blocked_item_id=blocked.id))
     db.commit()
     _broadcast(project.id, "item_updated", item.item_number)
