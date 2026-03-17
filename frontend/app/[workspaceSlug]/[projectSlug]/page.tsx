@@ -8,6 +8,7 @@ import Board from "@/components/Board";
 import CardDetail from "@/components/CardDetail";
 import FilterBar, { Filters } from "@/components/FilterBar";
 import CalendarView from "@/components/CalendarView";
+import DependencyGraph from "@/components/DependencyGraph";
 import SearchModal from "@/components/SearchModal";
 import ShortcutHelp from "@/components/ShortcutHelp";
 import BulkToolbar from "@/components/BulkToolbar";
@@ -17,7 +18,7 @@ import { useBoardSocket } from "@/lib/useBoardSocket";
 import { useAuth } from "@/lib/auth";
 import Link from "next/link";
 
-type ViewMode = "board" | "calendar";
+type ViewMode = "board" | "calendar" | "dependencies";
 
 export default function ProjectBoardPage() {
   const params = useParams();
@@ -216,6 +217,16 @@ export default function ProjectBoardPage() {
             >
               Calendar
             </button>
+            <button
+              onClick={() => setViewMode("dependencies")}
+              className={`text-[10px] px-2.5 py-1.5 font-medium transition-colors ${
+                viewMode === "dependencies"
+                  ? "bg-[var(--accent-subtle)] text-[var(--accent-hover)]"
+                  : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
+              }`}
+            >
+              Dependencies
+            </button>
           </div>
           {viewMode === "board" && (
             <select
@@ -304,6 +315,12 @@ export default function ProjectBoardPage() {
           templates={templates}
           onItemCreateFromTemplate={onItemCreateFromTemplate}
         />
+      ) : viewMode === "dependencies" ? (
+        <DependencyGraph
+          items={filteredItems}
+          states={states}
+          onCardClick={setSelectedItem}
+        />
       ) : (
         <CalendarView
           items={filteredItems}
@@ -312,7 +329,7 @@ export default function ProjectBoardPage() {
           onCardClick={setSelectedItem}
         />
       )}
-      {selectedItem && viewMode === "calendar" && (
+      {selectedItem && (viewMode === "calendar" || viewMode === "dependencies") && (
         <CardDetail
           item={selectedItem}
           basePath={basePath}
