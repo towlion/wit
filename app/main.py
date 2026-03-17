@@ -1,4 +1,5 @@
 import logging
+import os
 import sys
 import time
 
@@ -60,9 +61,11 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -168,7 +171,9 @@ async def board_websocket(websocket: WebSocket, project_id: int):
     await manager.connect(project_id, websocket, user_info)
     try:
         while True:
-            await websocket.receive_text()
+            data = await websocket.receive_text()
+            if len(data) > 4096:
+                continue
     except WebSocketDisconnect:
         pass
     finally:

@@ -217,6 +217,7 @@ class WorkItem(Base):
     labels: Mapped[list["Label"]] = relationship(
         secondary="work_item_labels", lazy="selectin"
     )
+    subtasks: Mapped[list["Subtask"]] = relationship(lazy="selectin")
 
 
 class ActivityEvent(Base):

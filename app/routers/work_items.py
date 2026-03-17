@@ -1,6 +1,8 @@
 import datetime
+from collections import defaultdict
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
 import asyncio
@@ -97,7 +99,58 @@ def list_items(
     if due_after:
         q = q.filter(WorkItem.due_date >= due_after, WorkItem.due_date.isnot(None))
     items = q.order_by(WorkItem.position).all()
-    return [_item_response(db, i) for i in items]
+
+    if not items:
+        return []
+
+    item_ids = [i.id for i in items]
+
+    # Batch load dependencies (2 queries total, not 2×N)
+    blocks_rows = (
+        db.query(WorkItemDependency, WorkItem)
+        .join(WorkItem, WorkItem.id == WorkItemDependency.blocked_item_id)
+        .filter(WorkItemDependency.blocking_item_id.in_(item_ids))
+        .all()
+    )
+    blocked_by_rows = (
+        db.query(WorkItemDependency, WorkItem)
+        .join(WorkItem, WorkItem.id == WorkItemDependency.blocking_item_id)
+        .filter(WorkItemDependency.blocked_item_id.in_(item_ids))
+        .all()
+    )
+
+    blocks_map: dict[int, list] = defaultdict(list)
+    for dep, wi in blocks_rows:
+        blocks_map[dep.blocking_item_id].append(
+            DependencyItem(item_id=wi.id, item_number=wi.item_number, title=wi.title)
+        )
+    blocked_by_map: dict[int, list] = defaultdict(list)
+    for dep, wi in blocked_by_rows:
+        blocked_by_map[dep.blocked_item_id].append(
+            DependencyItem(item_id=wi.id, item_number=wi.item_number, title=wi.title)
+        )
+
+    # Batch subtask summary (1 query, not 2×N)
+    subtask_stats = (
+        db.query(
+            Subtask.work_item_id,
+            func.count().label("total"),
+            func.count(case((Subtask.completed == True, 1))).label("completed"),
+        )
+        .filter(Subtask.work_item_id.in_(item_ids))
+        .group_by(Subtask.work_item_id)
+        .all()
+    )
+    subtask_map = {row.work_item_id: {"total": row.total, "completed": row.completed} for row in subtask_stats}
+
+    result = []
+    for item in items:
+        data = WorkItemResponse.model_validate(item).model_dump()
+        data["blocks"] = blocks_map.get(item.id, [])
+        data["blocked_by"] = blocked_by_map.get(item.id, [])
+        data["subtask_summary"] = subtask_map.get(item.id, {"total": 0, "completed": 0})
+        result.append(data)
+    return result
 
 
 @router.post(

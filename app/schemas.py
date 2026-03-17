@@ -8,7 +8,7 @@ class RegisterRequest(BaseModel):
     """Register a new user account."""
     email: EmailStr = Field(description="User's email address", examples=["user@example.com"])
     display_name: str = Field(description="Display name", examples=["Jane Doe"])
-    password: str = Field(description="Password (min 8 characters)")
+    password: str = Field(min_length=8, description="Password (min 8 characters)")
 
 
 class LoginRequest(BaseModel):

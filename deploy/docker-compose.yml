@@ -5,6 +5,8 @@ services:
       dockerfile: app/Dockerfile
     env_file:
       - .env
+    environment:
+      CORS_ORIGINS: "https://${APP_DOMAIN:-localhost}"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s

@@ -1,3 +1,7 @@
+import os
+
+os.environ["TESTING"] = "1"
+
 import pytest
 import sqlalchemy
 from sqlalchemy import create_engine, event
