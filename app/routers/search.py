@@ -46,13 +46,13 @@ def search_items(
         {"q": q, "pid": project.id, "lim": limit},
     ).fetchall()
 
-    items = []
-    for row in results:
-        item = db.get(WorkItem, row.id)
-        if item:
-            items.append({
-                "item": item,
-                "headline": row.headline,
-                "rank": float(row.rank),
-            })
-    return items
+    result_ids = [row.id for row in results]
+    items_map = {
+        item.id: item
+        for item in db.query(WorkItem).filter(WorkItem.id.in_(result_ids)).all()
+    } if result_ids else {}
+    headlines = {row.id: (row.headline, float(row.rank)) for row in results}
+    return [
+        {"item": items_map[rid], "headline": headlines[rid][0], "rank": headlines[rid][1]}
+        for rid in result_ids if rid in items_map
+    ]

@@ -211,19 +211,24 @@ def project_insights(
     done_names = {s.name for s in states if s.category == "done"}
     cycle_days = []
 
-    for item in done_items:
-        events = (
-            db.query(ActivityEvent)
-            .filter(
-                ActivityEvent.work_item_id == item.id,
-                ActivityEvent.event_type == "status_change",
-            )
-            .order_by(ActivityEvent.created_at)
-            .all()
+    done_item_ids = [item.id for item in done_items]
+    all_status_events = (
+        db.query(ActivityEvent)
+        .filter(
+            ActivityEvent.work_item_id.in_(done_item_ids),
+            ActivityEvent.event_type == "status_change",
         )
+        .order_by(ActivityEvent.work_item_id, ActivityEvent.created_at)
+        .all()
+    ) if done_item_ids else []
+    events_by_item: dict[int, list] = {}
+    for ev in all_status_events:
+        events_by_item.setdefault(ev.work_item_id, []).append(ev)
+
+    for item in done_items:
         first_in_progress = None
         last_done = None
-        for ev in events:
+        for ev in events_by_item.get(item.id, []):
             if ev.new_value in in_progress_names and first_in_progress is None:
                 first_in_progress = ev.created_at
             if ev.new_value in done_names:
@@ -298,26 +303,38 @@ def project_insights(
             .limit(10)
             .all()
         )
-        for item in done_items_recent:
-            last_done_event = (
-                db.query(ActivityEvent)
-                .filter(
-                    ActivityEvent.work_item_id == item.id,
-                    ActivityEvent.event_type == "status_change",
-                    ActivityEvent.new_value.in_(done_names),
-                )
-                .order_by(ActivityEvent.created_at.desc())
-                .first()
+        recent_ids = [item.id for item in done_items_recent]
+        recent_done_events = (
+            db.query(ActivityEvent)
+            .filter(
+                ActivityEvent.work_item_id.in_(recent_ids),
+                ActivityEvent.event_type == "status_change",
+                ActivityEvent.new_value.in_(done_names),
             )
+            .order_by(ActivityEvent.work_item_id, ActivityEvent.created_at.desc())
+            .all()
+        ) if recent_ids else []
+        # Get the last done event per item
+        last_done_by_item: dict[int, ActivityEvent] = {}
+        for ev in recent_done_events:
+            if ev.work_item_id not in last_done_by_item:
+                last_done_by_item[ev.work_item_id] = ev
+        # Batch-load any actors not already in users_map
+        extra_user_ids = {
+            ev.user_id for ev in last_done_by_item.values()
+            if ev.user_id and ev.user_id not in users_map
+        }
+        if extra_user_ids:
+            for u in db.query(User).filter(User.id.in_(extra_user_ids)).all():
+                users_map[u.id] = u
+        for item in done_items_recent:
+            last_done_event = last_done_by_item.get(item.id)
             completed_by = None
             completed_at = item.created_at
             if last_done_event:
                 completed_at = last_done_event.created_at
                 if last_done_event.user_id and last_done_event.user_id in users_map:
                     completed_by = users_map[last_done_event.user_id].display_name
-                elif last_done_event.user_id:
-                    u = db.get(User, last_done_event.user_id)
-                    completed_by = u.display_name if u else None
             recently_completed.append(
                 RecentlyCompletedItem(
                     item_number=item.item_number,
@@ -356,21 +373,27 @@ def export_csv(
     )
 
     states_map = {s.id: s.name for s in db.query(WorkflowState).filter_by(project_id=project.id).all()}
-    users_map = {}
+    creator_ids = {item.created_by_id for item in items if item.created_by_id}
+    users_map = {
+        u.id: u.display_name
+        for u in db.query(User).filter(User.id.in_(creator_ids)).all()
+    } if creator_ids else {}
+
+    item_ids = [item.id for item in items]
+    all_subtasks = db.query(Subtask).filter(Subtask.work_item_id.in_(item_ids)).all() if item_ids else []
+    subtasks_by_item: dict[int, list] = {}
+    for s in all_subtasks:
+        subtasks_by_item.setdefault(s.work_item_id, []).append(s)
 
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(["item_number", "title", "description", "status", "priority", "due_date", "created_by", "created_at", "assignees", "labels", "subtask_total", "subtask_completed"])
 
     for item in items:
-        if item.created_by_id not in users_map:
-            u = db.get(User, item.created_by_id)
-            users_map[item.created_by_id] = u.display_name if u else "Unknown"
-
         assignee_names = ", ".join(a.display_name for a in item.assignees)
         label_names = ", ".join(lb.name for lb in item.labels)
 
-        subtasks = db.query(Subtask).filter_by(work_item_id=item.id).all()
+        subtasks = subtasks_by_item.get(item.id, [])
         subtask_total = len(subtasks)
         subtask_completed = sum(1 for s in subtasks if s.completed)
 
@@ -381,7 +404,7 @@ def export_csv(
             states_map.get(item.status_id, ""),
             item.priority,
             str(item.due_date) if item.due_date else "",
-            users_map[item.created_by_id],
+            users_map.get(item.created_by_id, "Unknown"),
             item.created_at.isoformat(),
             assignee_names,
             label_names,

@@ -74,10 +74,27 @@ def export_json(
     field_defs = db.query(CustomFieldDefinition).filter_by(project_id=project.id).all()
     field_map = {f.id: f.name for f in field_defs}
 
+    # Batch-load subtasks and custom field values
+    item_ids_list = [i.id for i in items]
+    all_subtasks = (
+        db.query(Subtask).filter(Subtask.work_item_id.in_(item_ids_list))
+        .order_by(Subtask.work_item_id, Subtask.position).all()
+    ) if item_ids_list else []
+    subtasks_by_item: dict[int, list] = {}
+    for s in all_subtasks:
+        subtasks_by_item.setdefault(s.work_item_id, []).append(s)
+
+    all_custom_values = (
+        db.query(CustomFieldValue).filter(CustomFieldValue.work_item_id.in_(item_ids_list)).all()
+    ) if item_ids_list else []
+    cfv_by_item: dict[int, list] = {}
+    for cv in all_custom_values:
+        cfv_by_item.setdefault(cv.work_item_id, []).append(cv)
+
     items_data = []
     for item in items:
-        subtasks = db.query(Subtask).filter_by(work_item_id=item.id).order_by(Subtask.position).all()
-        custom_values = db.query(CustomFieldValue).filter_by(work_item_id=item.id).all()
+        subtasks = subtasks_by_item.get(item.id, [])
+        custom_values = cfv_by_item.get(item.id, [])
 
         item_data = {
             "item_number": item.item_number,

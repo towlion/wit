@@ -64,26 +64,25 @@ def admin_list_users(
         pattern = f"%{search}%"
         q = q.filter((User.email.ilike(pattern)) | (User.display_name.ilike(pattern)))
     users = q.order_by(User.id).offset(offset).limit(limit).all()
-    result = []
-    for u in users:
-        ws_count = (
-            db.query(func.count(WorkspaceMember.id))
-            .filter(WorkspaceMember.user_id == u.id)
-            .scalar()
-            or 0
+    user_ids = [u.id for u in users]
+    ws_counts = dict(
+        db.query(WorkspaceMember.user_id, func.count(WorkspaceMember.id))
+        .filter(WorkspaceMember.user_id.in_(user_ids))
+        .group_by(WorkspaceMember.user_id)
+        .all()
+    ) if user_ids else {}
+    return [
+        AdminUserResponse(
+            id=u.id,
+            email=u.email,
+            display_name=u.display_name,
+            is_superuser=u.is_superuser,
+            is_active=u.is_active,
+            created_at=u.created_at,
+            workspace_count=ws_counts.get(u.id, 0),
         )
-        result.append(
-            AdminUserResponse(
-                id=u.id,
-                email=u.email,
-                display_name=u.display_name,
-                is_superuser=u.is_superuser,
-                is_active=u.is_active,
-                created_at=u.created_at,
-                workspace_count=ws_count,
-            )
-        )
-    return result
+        for u in users
+    ]
 
 
 @router.patch("/users/{user_id}", response_model=AdminUserResponse)
@@ -160,39 +159,35 @@ def admin_list_workspaces(
         pattern = f"%{search}%"
         q = q.filter((Workspace.name.ilike(pattern)) | (Workspace.slug.ilike(pattern)))
     workspaces = q.order_by(Workspace.id).offset(offset).limit(limit).all()
-    result = []
-    for ws in workspaces:
-        member_count = (
-            db.query(func.count(WorkspaceMember.id))
-            .filter(WorkspaceMember.workspace_id == ws.id)
-            .scalar()
-            or 0
+    ws_ids = [ws.id for ws in workspaces]
+    member_counts = dict(
+        db.query(WorkspaceMember.workspace_id, func.count(WorkspaceMember.id))
+        .filter(WorkspaceMember.workspace_id.in_(ws_ids))
+        .group_by(WorkspaceMember.workspace_id).all()
+    ) if ws_ids else {}
+    project_counts = dict(
+        db.query(Project.workspace_id, func.count(Project.id))
+        .filter(Project.workspace_id.in_(ws_ids))
+        .group_by(Project.workspace_id).all()
+    ) if ws_ids else {}
+    item_counts = dict(
+        db.query(Project.workspace_id, func.count(WorkItem.id))
+        .join(WorkItem, WorkItem.project_id == Project.id)
+        .filter(Project.workspace_id.in_(ws_ids))
+        .group_by(Project.workspace_id).all()
+    ) if ws_ids else {}
+    return [
+        AdminWorkspaceResponse(
+            id=ws.id,
+            name=ws.name,
+            slug=ws.slug,
+            created_at=ws.created_at,
+            member_count=member_counts.get(ws.id, 0),
+            project_count=project_counts.get(ws.id, 0),
+            item_count=item_counts.get(ws.id, 0),
         )
-        project_count = (
-            db.query(func.count(Project.id))
-            .filter(Project.workspace_id == ws.id)
-            .scalar()
-            or 0
-        )
-        item_count = (
-            db.query(func.count(WorkItem.id))
-            .join(Project, WorkItem.project_id == Project.id)
-            .filter(Project.workspace_id == ws.id)
-            .scalar()
-            or 0
-        )
-        result.append(
-            AdminWorkspaceResponse(
-                id=ws.id,
-                name=ws.name,
-                slug=ws.slug,
-                created_at=ws.created_at,
-                member_count=member_count,
-                project_count=project_count,
-                item_count=item_count,
-            )
-        )
-    return result
+        for ws in workspaces
+    ]
 
 
 @router.get("/workspaces/{workspace_id}/members", response_model=list[MemberResponse])
@@ -259,9 +254,11 @@ def admin_audit_log(
     if action:
         q = q.filter(AdminAuditLog.action == action)
     logs = q.order_by(AdminAuditLog.created_at.desc()).offset(offset).limit(limit).all()
+    actor_ids = {log.actor_id for log in logs if log.actor_id}
+    actors_map = {u.id: u for u in db.query(User).filter(User.id.in_(actor_ids)).all()} if actor_ids else {}
     result = []
     for log in logs:
-        actor = db.get(User, log.actor_id) if log.actor_id else None
+        actor = actors_map.get(log.actor_id) if log.actor_id else None
         actor_resp = (
             UserResponse(
                 id=actor.id,

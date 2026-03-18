@@ -23,34 +23,49 @@ def _resolve_project(ws_slug: str, project_slug: str, user: User, db: Session, m
     return project
 
 
+def _batch_sprint_stats(db: Session, sprint_ids: list[int]) -> dict[int, dict]:
+    if not sprint_ids:
+        return {}
+    totals = dict(
+        db.query(WorkItem.sprint_id, func.count(WorkItem.id))
+        .filter(WorkItem.sprint_id.in_(sprint_ids), WorkItem.archived == False)
+        .group_by(WorkItem.sprint_id).all()
+    )
+    completed = dict(
+        db.query(WorkItem.sprint_id, func.count(WorkItem.id))
+        .join(WorkflowState, WorkItem.status_id == WorkflowState.id)
+        .filter(WorkItem.sprint_id.in_(sprint_ids), WorkItem.archived == False, WorkflowState.category == "done")
+        .group_by(WorkItem.sprint_id).all()
+    )
+    pts_total = dict(
+        db.query(WorkItem.sprint_id, func.coalesce(func.sum(WorkItem.story_points), 0))
+        .filter(WorkItem.sprint_id.in_(sprint_ids), WorkItem.archived == False)
+        .group_by(WorkItem.sprint_id).all()
+    )
+    pts_completed = dict(
+        db.query(WorkItem.sprint_id, func.coalesce(func.sum(WorkItem.story_points), 0))
+        .join(WorkflowState, WorkItem.status_id == WorkflowState.id)
+        .filter(WorkItem.sprint_id.in_(sprint_ids), WorkItem.archived == False, WorkflowState.category == "done")
+        .group_by(WorkItem.sprint_id).all()
+    )
+    return {
+        sid: {
+            "item_count": totals.get(sid, 0),
+            "completed_count": completed.get(sid, 0),
+            "points_total": pts_total.get(sid, 0),
+            "points_completed": pts_completed.get(sid, 0),
+        }
+        for sid in sprint_ids
+    }
+
+
 def _sprint_response(db: Session, sprint: Sprint) -> dict:
-    total = db.query(func.count(WorkItem.id)).filter_by(sprint_id=sprint.id, archived=False).scalar() or 0
-    done_state_ids = [
-        s.id for s in db.query(WorkflowState.id).filter_by(project_id=sprint.project_id).join(WorkflowState.__table__).all()
-    ] if False else []
-    # Count completed items (in a "done" category state)
-    completed = (
-        db.query(func.count(WorkItem.id))
-        .join(WorkflowState, WorkItem.status_id == WorkflowState.id)
-        .filter(WorkItem.sprint_id == sprint.id, WorkItem.archived == False, WorkflowState.category == "done")
-        .scalar()
-    ) or 0
-    points_total = (
-        db.query(func.coalesce(func.sum(WorkItem.story_points), 0))
-        .filter(WorkItem.sprint_id == sprint.id, WorkItem.archived == False)
-        .scalar()
-    ) or 0
-    points_completed = (
-        db.query(func.coalesce(func.sum(WorkItem.story_points), 0))
-        .join(WorkflowState, WorkItem.status_id == WorkflowState.id)
-        .filter(WorkItem.sprint_id == sprint.id, WorkItem.archived == False, WorkflowState.category == "done")
-        .scalar()
-    ) or 0
+    stats = _batch_sprint_stats(db, [sprint.id]).get(sprint.id, {})
     data = SprintResponse.model_validate(sprint).model_dump()
-    data["item_count"] = total
-    data["completed_count"] = completed
-    data["points_total"] = points_total
-    data["points_completed"] = points_completed
+    data["item_count"] = stats.get("item_count", 0)
+    data["completed_count"] = stats.get("completed_count", 0)
+    data["points_total"] = stats.get("points_total", 0)
+    data["points_completed"] = stats.get("points_completed", 0)
     return data
 
 
@@ -70,7 +85,17 @@ def list_sprints(
     if status_filter:
         q = q.filter(Sprint.status == status_filter)
     sprints = q.order_by(Sprint.created_at.desc()).all()
-    return [_sprint_response(db, s) for s in sprints]
+    stats = _batch_sprint_stats(db, [s.id for s in sprints])
+    result = []
+    for s in sprints:
+        data = SprintResponse.model_validate(s).model_dump()
+        s_stats = stats.get(s.id, {})
+        data["item_count"] = s_stats.get("item_count", 0)
+        data["completed_count"] = s_stats.get("completed_count", 0)
+        data["points_total"] = s_stats.get("points_total", 0)
+        data["points_completed"] = s_stats.get("points_completed", 0)
+        result.append(data)
+    return result
 
 
 @router.post(
@@ -187,32 +212,15 @@ def sprint_velocity(
 ):
     project = _resolve_project(ws_slug, project_slug, user, db)
     sprints = db.query(Sprint).filter_by(project_id=project.id).order_by(Sprint.created_at).all()
-    result = []
-    for s in sprints:
-        total = db.query(func.count(WorkItem.id)).filter_by(sprint_id=s.id).scalar() or 0
-        completed = (
-            db.query(func.count(WorkItem.id))
-            .join(WorkflowState, WorkItem.status_id == WorkflowState.id)
-            .filter(WorkItem.sprint_id == s.id, WorkflowState.category == "done")
-            .scalar()
-        ) or 0
-        total_points = (
-            db.query(func.coalesce(func.sum(WorkItem.story_points), 0))
-            .filter(WorkItem.sprint_id == s.id)
-            .scalar()
-        ) or 0
-        completed_points = (
-            db.query(func.coalesce(func.sum(WorkItem.story_points), 0))
-            .join(WorkflowState, WorkItem.status_id == WorkflowState.id)
-            .filter(WorkItem.sprint_id == s.id, WorkflowState.category == "done")
-            .scalar()
-        ) or 0
-        result.append(SprintVelocityItem(
+    stats = _batch_sprint_stats(db, [s.id for s in sprints])
+    return [
+        SprintVelocityItem(
             sprint_id=s.id,
             sprint_name=s.name,
-            total_items=total,
-            completed_items=completed,
-            total_points=total_points,
-            completed_points=completed_points,
-        ))
-    return result
+            total_items=stats.get(s.id, {}).get("item_count", 0),
+            completed_items=stats.get(s.id, {}).get("completed_count", 0),
+            total_points=stats.get(s.id, {}).get("points_total", 0),
+            completed_points=stats.get(s.id, {}).get("points_completed", 0),
+        )
+        for s in sprints
+    ]
