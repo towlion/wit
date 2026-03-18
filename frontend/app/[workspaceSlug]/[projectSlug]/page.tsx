@@ -486,6 +486,10 @@ export default function ProjectBoardPage() {
             setSelectedItem(null);
             loadData();
           }}
+          onClone={(clonedItem) => {
+            setItems((prev) => [...prev, clonedItem]);
+            setSelectedItem(null);
+          }}
         />
       )}
       {showShortcuts && <ShortcutHelp onClose={() => setShowShortcuts(false)} />}

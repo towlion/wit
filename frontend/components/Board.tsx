@@ -327,6 +327,10 @@ export default function Board({
             setSelectedItem(null);
             onRefresh();
           }}
+          onClone={() => {
+            setSelectedItem(null);
+            onRefresh();
+          }}
         />
       )}
     </>

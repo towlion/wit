@@ -17,6 +17,7 @@ interface CardDetailProps {
   wsSlug: string;
   onClose: () => void;
   onUpdate: (data: Partial<WorkItem>) => Promise<void>;
+  onClone?: (clonedItem: WorkItem) => void;
 }
 
 interface FieldDef {
@@ -47,7 +48,7 @@ interface AttachmentItem {
 
 const PRIORITIES = ["low", "medium", "high", "urgent"];
 
-export default function CardDetail({ item, basePath, wsSlug, onClose, onUpdate }: CardDetailProps) {
+export default function CardDetail({ item, basePath, wsSlug, onClose, onUpdate, onClone }: CardDetailProps) {
   const [title, setTitle] = useState(item.title);
   const [description, setDescription] = useState(item.description || "");
   const [priority, setPriority] = useState(item.priority);
@@ -178,6 +179,12 @@ export default function CardDetail({ item, basePath, wsSlug, onClose, onUpdate }
     setSubtasks((prev) => prev.filter((s) => s.id !== subtaskId));
   }
 
+  async function handleClone() {
+    const cloned = await api.post<WorkItem>(`${basePath}/items/${item.item_number}/clone`);
+    onClone?.(cloned);
+    onClose();
+  }
+
   const subtaskCompleted = subtasks.filter((s) => s.completed).length;
 
   return (
@@ -213,6 +220,16 @@ export default function CardDetail({ item, basePath, wsSlug, onClose, onUpdate }
                 {watchStatus.watcher_count > 0 && (
                   <span className="text-[10px] opacity-70">{watchStatus.watcher_count}</span>
                 )}
+              </button>
+              <button
+                onClick={handleClone}
+                aria-label="Clone item"
+                className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border bg-[var(--bg-tertiary)] border-[var(--border-subtle)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--border)] transition-all"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+                Clone
               </button>
             </div>
             <button

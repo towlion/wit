@@ -195,6 +195,99 @@ def test_remove_dependency(client, project):
     assert resp.status_code == 204
 
 
+def test_clone_copies_basic_fields(client, project):
+    ws, proj, headers = project
+    client.post(_items_url(ws, proj), headers=headers, json={
+        "title": "Original", "description": "desc", "priority": "high",
+    })
+    resp = client.post(f"{_items_url(ws, proj)}/1/clone", headers=headers)
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data["title"] == "Copy of Original"
+    assert data["description"] == "desc"
+    assert data["priority"] == "high"
+
+
+def test_clone_increments_item_number(client, project):
+    ws, proj, headers = project
+    client.post(_items_url(ws, proj), headers=headers, json={"title": "First"})
+    resp = client.post(f"{_items_url(ws, proj)}/1/clone", headers=headers)
+    assert resp.json()["item_number"] == 2
+
+
+def test_clone_copies_assignees(client, project):
+    ws, proj, headers = project
+    client.post(_items_url(ws, proj), headers=headers, json={"title": "Assign"})
+    me = client.get("/api/auth/me", headers=headers).json()
+    client.post(f"{_items_url(ws, proj)}/1/assignees/{me['id']}", headers=headers)
+    resp = client.post(f"{_items_url(ws, proj)}/1/clone", headers=headers)
+    cloned = resp.json()
+    assert len(cloned["assignees"]) == 1
+    assert cloned["assignees"][0]["id"] == me["id"]
+
+
+def test_clone_copies_labels(client, project):
+    ws, proj, headers = project
+    client.post(_items_url(ws, proj), headers=headers, json={"title": "Label"})
+    label = client.post(f"/api/workspaces/{ws}/projects/{proj}/labels", headers=headers, json={
+        "name": "bug", "color": "#ef4444",
+    }).json()
+    client.post(f"{_items_url(ws, proj)}/1/labels/{label['id']}", headers=headers)
+    resp = client.post(f"{_items_url(ws, proj)}/1/clone", headers=headers)
+    cloned = resp.json()
+    assert len(cloned["labels"]) == 1
+    assert cloned["labels"][0]["name"] == "bug"
+
+
+def test_clone_copies_subtasks_uncompleted(client, project):
+    ws, proj, headers = project
+    client.post(_items_url(ws, proj), headers=headers, json={"title": "Parent"})
+    sub1 = client.post(f"{_items_url(ws, proj)}/1/subtasks", headers=headers, json={"title": "Sub A"}).json()
+    sub2 = client.post(f"{_items_url(ws, proj)}/1/subtasks", headers=headers, json={"title": "Sub B"}).json()
+    # Mark one as completed
+    client.patch(f"{_items_url(ws, proj)}/1/subtasks/{sub2['id']}", headers=headers, json={"completed": True})
+    resp = client.post(f"{_items_url(ws, proj)}/1/clone", headers=headers)
+    clone_number = resp.json()["item_number"]
+    subs = client.get(f"{_items_url(ws, proj)}/{clone_number}/subtasks", headers=headers).json()
+    assert len(subs) == 2
+    assert all(s["completed"] is False for s in subs)
+
+
+def test_clone_copies_custom_field_values(client, project):
+    ws, proj, headers = project
+    # Create a custom field
+    field = client.post(f"/api/workspaces/{ws}/projects/{proj}/fields", headers=headers, json={
+        "name": "Estimate", "field_type": "number",
+    }).json()
+    client.post(_items_url(ws, proj), headers=headers, json={"title": "CF item"})
+    # Set field value
+    client.put(f"{_items_url(ws, proj)}/1/fields/{field['id']}", headers=headers, json={
+        "value_number": 42,
+    })
+    resp = client.post(f"{_items_url(ws, proj)}/1/clone", headers=headers)
+    clone_number = resp.json()["item_number"]
+    vals = client.get(f"{_items_url(ws, proj)}/{clone_number}/fields", headers=headers).json()
+    assert len(vals) == 1
+    assert vals[0]["value_number"] == 42
+
+
+def test_clone_requires_editor_role(client, project):
+    ws, proj, headers = project
+    client.post(_items_url(ws, proj), headers=headers, json={"title": "Item"})
+    # Create a guest user (guests without project membership get 403)
+    resp = client.post("/api/auth/register", json={
+        "email": "guest@example.com", "display_name": "Guest", "password": "pass12345",
+    })
+    guest_token = resp.json()["access_token"]
+    guest_headers = {"Authorization": f"Bearer {guest_token}"}
+    client.post(f"/api/workspaces/{ws}/members", headers=headers, json={
+        "email": "guest@example.com", "role": "guest",
+    })
+    # Try to clone as guest (no project membership -> 403)
+    resp = client.post(f"{_items_url(ws, proj)}/1/clone", headers=guest_headers)
+    assert resp.status_code == 403
+
+
 def test_filter_by_priority(client, project):
     ws, proj, headers = project
     client.post(_items_url(ws, proj), headers=headers, json={"title": "Low", "priority": "low"})

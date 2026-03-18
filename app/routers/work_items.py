@@ -11,7 +11,7 @@ from app.activity import record_activity
 from app.automation import run_status_automations
 from app.database import get_db
 from app.deps import get_current_user, get_project_role, get_workspace_member
-from app.models import Label, Project, Subtask, User, Workspace, WorkflowState, WorkItem, WorkItemAssignee, WorkItemDependency, WorkItemLabel
+from app.models import CustomFieldValue, Label, Project, Subtask, User, Workspace, WorkflowState, WorkItem, WorkItemAssignee, WorkItemDependency, WorkItemLabel
 from app.schemas import DependencyCreate, DependencyItem, DependencyResponse, SubtaskCreate, SubtaskResponse, SubtaskUpdate, WorkItemCreate, WorkItemResponse, WorkItemUpdate
 
 from app.websocket import manager as ws_manager
@@ -331,6 +331,66 @@ def delete_item(
     db.delete(item)
     db.commit()
     _broadcast(project.id, "item_deleted", item_number)
+
+
+# --- Clone ---
+@router.post(
+    "/workspaces/{ws_slug}/projects/{project_slug}/items/{item_number}/clone",
+    status_code=status.HTTP_201_CREATED,
+)
+def clone_item(
+    ws_slug: str,
+    project_slug: str,
+    item_number: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Clone a work item with its labels, assignees, subtasks, and custom field values."""
+    project = _resolve_project(ws_slug, project_slug, user, db, min_role="editor")
+    source = db.query(WorkItem).filter_by(project_id=project.id, item_number=item_number).first()
+    if not source:
+        raise HTTPException(status_code=404, detail="Item not found")
+
+    project.item_counter += 1
+    new_item = WorkItem(
+        project_id=project.id,
+        item_number=project.item_counter,
+        title=f"Copy of {source.title}",
+        description=source.description,
+        status_id=source.status_id,
+        priority=source.priority,
+        due_date=source.due_date,
+        story_points=source.story_points,
+        sprint_id=source.sprint_id,
+        position="a0",
+        created_by_id=user.id,
+    )
+    db.add(new_item)
+    db.flush()
+
+    for assn in db.query(WorkItemAssignee).filter_by(work_item_id=source.id).all():
+        db.add(WorkItemAssignee(work_item_id=new_item.id, user_id=assn.user_id))
+
+    for wil in db.query(WorkItemLabel).filter_by(work_item_id=source.id).all():
+        db.add(WorkItemLabel(work_item_id=new_item.id, label_id=wil.label_id))
+
+    for st in db.query(Subtask).filter_by(work_item_id=source.id).order_by(Subtask.position).all():
+        db.add(Subtask(work_item_id=new_item.id, title=st.title, position=st.position, completed=False))
+
+    for cfv in db.query(CustomFieldValue).filter_by(work_item_id=source.id).all():
+        db.add(CustomFieldValue(
+            work_item_id=new_item.id,
+            field_id=cfv.field_id,
+            value_text=cfv.value_text,
+            value_number=cfv.value_number,
+            value_date=cfv.value_date,
+        ))
+
+    record_activity(db, new_item.id, user.id, "created")
+    db.commit()
+    db.refresh(new_item)
+    _broadcast(project.id, "item_created", new_item.item_number)
+    return _item_response(db, new_item)
 
 
 # --- Assignees ---
