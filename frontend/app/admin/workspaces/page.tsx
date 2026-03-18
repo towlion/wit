@@ -3,12 +3,16 @@
 import { useEffect, useState, useCallback } from "react";
 import { api } from "@/lib/api";
 import type { AdminWorkspace } from "@/lib/types";
+import ConfirmDialog from "@/components/ConfirmDialog";
+import { useToast } from "@/lib/toast";
 
 export default function AdminWorkspacesPage() {
   const [workspaces, setWorkspaces] = useState<AdminWorkspace[]>([]);
   const [search, setSearch] = useState("");
   const [offset, setOffset] = useState(0);
-  const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<AdminWorkspace | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const { toast } = useToast();
   const LIMIT = 50;
 
   const load = useCallback(() => {
@@ -21,10 +25,16 @@ export default function AdminWorkspacesPage() {
     load();
   }, [load]);
 
-  async function deleteWorkspace(id: number) {
-    await api.delete(`/admin/workspaces/${id}`);
-    setConfirmDelete(null);
-    load();
+  async function handleDeleteWorkspace() {
+    if (!deleteTarget) return;
+    setDeleteLoading(true);
+    try {
+      await api.delete(`/admin/workspaces/${deleteTarget.id}`);
+      setDeleteTarget(null);
+      load();
+      toast.success("Workspace deleted");
+    } catch { toast.error("Failed to delete workspace"); }
+    finally { setDeleteLoading(false); }
   }
 
   return (
@@ -61,30 +71,27 @@ export default function AdminWorkspacesPage() {
                 <td className="px-4 py-3 text-center tabular-nums">{ws.project_count}</td>
                 <td className="px-4 py-3 text-center tabular-nums">{ws.item_count}</td>
                 <td className="px-4 py-3 text-right">
-                  {confirmDelete === ws.id ? (
-                    <div className="flex items-center justify-end gap-2">
-                      <span className="text-xs text-red-400">Delete?</span>
-                      <button onClick={() => deleteWorkspace(ws.id)} className="text-xs text-red-400 font-medium hover:text-red-300 transition-colors">
-                        Confirm
-                      </button>
-                      <button onClick={() => setConfirmDelete(null)} className="text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors">
-                        Cancel
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => setConfirmDelete(ws.id)}
-                      className="text-xs text-red-400/70 hover:text-red-400 transition-colors"
-                    >
-                      Delete
-                    </button>
-                  )}
+                  <button
+                    onClick={() => setDeleteTarget(ws)}
+                    className="text-xs text-red-400/70 hover:text-red-400 transition-colors"
+                  >
+                    Delete
+                  </button>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="Delete workspace"
+        message={`Permanently delete "${deleteTarget?.name}"? All projects, items, and members will be removed.`}
+        loading={deleteLoading}
+        onConfirm={handleDeleteWorkspace}
+        onCancel={() => setDeleteTarget(null)}
+      />
 
       {workspaces.length === LIMIT && (
         <div className="flex justify-center gap-3 mt-4">

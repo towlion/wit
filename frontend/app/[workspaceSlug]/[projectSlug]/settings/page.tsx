@@ -5,6 +5,8 @@ import { useParams } from "next/navigation";
 import { api } from "@/lib/api";
 import type { WorkflowState, Label, ItemTemplate, AutomationRule, Workspace, Member, WorkItem, RecurrenceRule, Sprint, ProjectMember } from "@/lib/types";
 import ImportModal from "@/components/ImportModal";
+import ConfirmDialog from "@/components/ConfirmDialog";
+import { SkeletonLine, SkeletonBlock } from "@/components/Skeleton";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/lib/toast";
 
@@ -80,28 +82,51 @@ export default function ProjectSettingsPage() {
   // Import modal
   const [showImport, setShowImport] = useState(false);
 
+  // Loading
+  const [loading, setLoading] = useState(true);
+
+  // Confirm dialog
+  const [confirmState, setConfirmState] = useState<{ action: () => Promise<void>; title: string; message: string } | null>(null);
+  const [confirmLoading, setConfirmLoading] = useState(false);
+
+  // Button loading states
+  const [addingField, setAddingField] = useState(false);
+  const [addingState, setAddingState] = useState(false);
+  const [addingLabel, setAddingLabel] = useState(false);
+  const [addingTemplate, setAddingTemplate] = useState(false);
+  const [addingRule, setAddingRule] = useState(false);
+  const [addingSprint, setAddingSprint] = useState(false);
+  const [addingMember, setAddingMember] = useState(false);
+
   useEffect(() => {
-    api.get<WorkflowState[]>(`${basePath}/states`).then(setStates);
-    api.get<Label[]>(`${basePath}/labels`).then(setLabels);
-    api.get<FieldDef[]>(`${basePath}/fields`).then(setFields).catch(() => toast.error("Failed to load custom fields"));
-    api.get<ItemTemplate[]>(`${basePath}/templates`).then(setTemplates).catch(() => toast.error("Failed to load templates"));
-    api.get<AutomationRule[]>(`${basePath}/automations`).then(setRules).catch(() => toast.error("Failed to load automations"));
-    api.get<{ members: Member[] }>(`/workspaces/${wsSlug}`).then((ws) => setMembers(ws.members)).catch(() => toast.error("Failed to load members"));
-    api.get<RecurrenceRule[]>(`${basePath}/recurrences`).then(setRecurrences).catch(() => toast.error("Failed to load recurrences"));
-    api.get<WorkItem[]>(`${basePath}/items`).then(setItems).catch(() => toast.error("Failed to load items"));
-    api.get<Sprint[]>(`${basePath}/sprints`).then(setSprints).catch(() => toast.error("Failed to load sprints"));
-    api.get<ProjectMember[]>(`${basePath}/project-members`).then(setProjectMembers).catch(() => toast.error("Failed to load project members"));
+    setLoading(true);
+    Promise.all([
+      api.get<WorkflowState[]>(`${basePath}/states`).then(setStates),
+      api.get<Label[]>(`${basePath}/labels`).then(setLabels),
+      api.get<FieldDef[]>(`${basePath}/fields`).then(setFields).catch(() => toast.error("Failed to load custom fields")),
+      api.get<ItemTemplate[]>(`${basePath}/templates`).then(setTemplates).catch(() => toast.error("Failed to load templates")),
+      api.get<AutomationRule[]>(`${basePath}/automations`).then(setRules).catch(() => toast.error("Failed to load automations")),
+      api.get<{ members: Member[] }>(`/workspaces/${wsSlug}`).then((ws) => setMembers(ws.members)).catch(() => toast.error("Failed to load members")),
+      api.get<RecurrenceRule[]>(`${basePath}/recurrences`).then(setRecurrences).catch(() => toast.error("Failed to load recurrences")),
+      api.get<WorkItem[]>(`${basePath}/items`).then(setItems).catch(() => toast.error("Failed to load items")),
+      api.get<Sprint[]>(`${basePath}/sprints`).then(setSprints).catch(() => toast.error("Failed to load sprints")),
+      api.get<ProjectMember[]>(`${basePath}/project-members`).then(setProjectMembers).catch(() => toast.error("Failed to load project members")),
+    ]).finally(() => setLoading(false));
   }, [basePath, wsSlug]);
 
   async function addField(e: FormEvent) {
     e.preventDefault();
-    const field = await api.post<FieldDef>(`${basePath}/fields`, {
-      name: newFieldName,
-      field_type: newFieldType,
-      position: fields.length,
-    });
-    setFields([...fields, field]);
-    setNewFieldName("");
+    setAddingField(true);
+    try {
+      const field = await api.post<FieldDef>(`${basePath}/fields`, {
+        name: newFieldName,
+        field_type: newFieldType,
+        position: fields.length,
+      });
+      setFields([...fields, field]);
+      setNewFieldName("");
+    } catch { toast.error("Failed to add field"); }
+    finally { setAddingField(false); }
   }
 
   async function deleteField(id: number) {
@@ -111,14 +136,18 @@ export default function ProjectSettingsPage() {
 
   async function addState(e: FormEvent) {
     e.preventDefault();
-    const state = await api.post<WorkflowState>(`${basePath}/states`, {
-      name: newStateName,
-      category: newStateCategory,
-      position: states.length,
-      color: newStateColor,
-    });
-    setStates([...states, state]);
-    setNewStateName("");
+    setAddingState(true);
+    try {
+      const state = await api.post<WorkflowState>(`${basePath}/states`, {
+        name: newStateName,
+        category: newStateCategory,
+        position: states.length,
+        color: newStateColor,
+      });
+      setStates([...states, state]);
+      setNewStateName("");
+    } catch { toast.error("Failed to add state"); }
+    finally { setAddingState(false); }
   }
 
   async function deleteState(id: number) {
@@ -128,12 +157,16 @@ export default function ProjectSettingsPage() {
 
   async function addLabel(e: FormEvent) {
     e.preventDefault();
-    const label = await api.post<Label>(`${basePath}/labels`, {
-      name: newLabelName,
-      color: newLabelColor,
-    });
-    setLabels([...labels, label]);
-    setNewLabelName("");
+    setAddingLabel(true);
+    try {
+      const label = await api.post<Label>(`${basePath}/labels`, {
+        name: newLabelName,
+        color: newLabelColor,
+      });
+      setLabels([...labels, label]);
+      setNewLabelName("");
+    } catch { toast.error("Failed to add label"); }
+    finally { setAddingLabel(false); }
   }
 
   async function deleteLabel(id: number) {
@@ -143,17 +176,21 @@ export default function ProjectSettingsPage() {
 
   async function addTemplate(e: FormEvent) {
     e.preventDefault();
-    const tmpl = await api.post<ItemTemplate>(`${basePath}/templates`, {
-      name: newTmplName,
-      title_template: newTmplTitle,
-      description_template: newTmplDesc || null,
-      priority: newTmplPriority,
-    });
-    setTemplates([...templates, tmpl]);
-    setNewTmplName("");
-    setNewTmplTitle("");
-    setNewTmplDesc("");
-    setNewTmplPriority("medium");
+    setAddingTemplate(true);
+    try {
+      const tmpl = await api.post<ItemTemplate>(`${basePath}/templates`, {
+        name: newTmplName,
+        title_template: newTmplTitle,
+        description_template: newTmplDesc || null,
+        priority: newTmplPriority,
+      });
+      setTemplates([...templates, tmpl]);
+      setNewTmplName("");
+      setNewTmplTitle("");
+      setNewTmplDesc("");
+      setNewTmplPriority("medium");
+    } catch { toast.error("Failed to add template"); }
+    finally { setAddingTemplate(false); }
   }
 
   async function deleteTemplate(id: number) {
@@ -175,27 +212,38 @@ export default function ProjectSettingsPage() {
     if (newRuleTrigger === "label_added") triggerConfig = { label_id: parseInt(newRuleTriggerLabelId) };
     else if (newRuleTrigger === "due_date_approaching") triggerConfig = { days_before: parseInt(newRuleDaysBefore) || 1 };
 
-    const rule = await api.post<AutomationRule>(`${basePath}/automations`, {
-      name: newRuleName,
-      trigger: newRuleTrigger,
-      trigger_state_id: newRuleTrigger === "status_enter" ? (parseInt(newRuleStateId) || null) : null,
-      trigger_config: triggerConfig,
-      action: newRuleAction,
-      action_config: actionConfig,
-    });
-    setRules([...rules, rule]);
-    setNewRuleName("");
-    setNewRuleStateId("");
-    setNewRuleTriggerLabelId("");
-    setNewRuleDaysBefore("1");
-    setNewRuleConfigValue("");
-    setNewRuleNotifyMessage("");
-    setNewRuleLinkedTitle("");
+    setAddingRule(true);
+    try {
+      const rule = await api.post<AutomationRule>(`${basePath}/automations`, {
+        name: newRuleName,
+        trigger: newRuleTrigger,
+        trigger_state_id: newRuleTrigger === "status_enter" ? (parseInt(newRuleStateId) || null) : null,
+        trigger_config: triggerConfig,
+        action: newRuleAction,
+        action_config: actionConfig,
+      });
+      setRules([...rules, rule]);
+      setNewRuleName("");
+      setNewRuleStateId("");
+      setNewRuleTriggerLabelId("");
+      setNewRuleDaysBefore("1");
+      setNewRuleConfigValue("");
+      setNewRuleNotifyMessage("");
+      setNewRuleLinkedTitle("");
+    } catch { toast.error("Failed to add rule"); }
+    finally { setAddingRule(false); }
   }
 
-  async function deleteRule(id: number) {
-    await api.delete(`${basePath}/automations/${id}`);
-    setRules(rules.filter((r) => r.id !== id));
+  function confirmDeleteRule(id: number) {
+    setConfirmState({
+      title: "Delete automation rule",
+      message: "This will permanently remove this automation. Workflows relying on it will stop.",
+      action: async () => {
+        await api.delete(`${basePath}/automations/${id}`);
+        setRules(rules.filter((r) => r.id !== id));
+        toast.success("Automation rule deleted");
+      },
+    });
   }
 
   async function toggleRule(rule: AutomationRule) {
@@ -242,9 +290,47 @@ export default function ProjectSettingsPage() {
     return `When entering "${s?.name || "?"}"`;
   }
 
+  if (loading) {
+    return (
+      <div className="p-6 max-w-2xl animate-fade-in">
+        <SkeletonLine width="200px" height="24px" className="mb-6" />
+        <div className="space-y-8">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i}>
+              <SkeletonLine width="120px" height="12px" className="mb-3" />
+              <div className="space-y-2">
+                <SkeletonBlock height="52px" />
+                <SkeletonBlock height="52px" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 max-w-2xl animate-fade-in">
       <h1 className="text-xl font-semibold tracking-tight mb-6">Project settings</h1>
+
+      <ConfirmDialog
+        open={confirmState !== null}
+        title={confirmState?.title ?? ""}
+        message={confirmState?.message ?? ""}
+        loading={confirmLoading}
+        onConfirm={async () => {
+          if (!confirmState) return;
+          setConfirmLoading(true);
+          try {
+            await confirmState.action();
+          } catch { toast.error("Operation failed"); }
+          finally {
+            setConfirmLoading(false);
+            setConfirmState(null);
+          }
+        }}
+        onCancel={() => setConfirmState(null)}
+      />
 
       <section className="mb-8">
         <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-3">Workflow states</h2>
@@ -297,8 +383,8 @@ export default function ProjectSettingsPage() {
             onChange={(e) => setNewStateColor(e.target.value)}
             className="w-11 h-11 rounded-xl border border-[var(--border)] bg-[var(--bg-tertiary)] cursor-pointer p-1"
           />
-          <button type="submit" className="btn-primary">
-            Add
+          <button type="submit" disabled={addingState} className="btn-primary">
+            {addingState ? "Adding..." : "Add"}
           </button>
         </form>
       </section>
@@ -344,8 +430,8 @@ export default function ProjectSettingsPage() {
             onChange={(e) => setNewLabelColor(e.target.value)}
             className="w-11 h-11 rounded-xl border border-[var(--border)] bg-[var(--bg-tertiary)] cursor-pointer p-1"
           />
-          <button type="submit" className="btn-primary">
-            Add
+          <button type="submit" disabled={addingLabel} className="btn-primary">
+            {addingLabel ? "Adding..." : "Add"}
           </button>
         </form>
       </section>
@@ -386,7 +472,7 @@ export default function ProjectSettingsPage() {
             <option value="select">Select</option>
             <option value="checkbox">Checkbox</option>
           </select>
-          <button type="submit" className="btn-primary">Add</button>
+          <button type="submit" disabled={addingField} className="btn-primary">{addingField ? "Adding..." : "Add"}</button>
         </form>
       </section>
 
@@ -450,7 +536,7 @@ export default function ProjectSettingsPage() {
               placeholder="Description template (optional)"
               className="input-base flex-1"
             />
-            <button type="submit" className="btn-primary">Add</button>
+            <button type="submit" disabled={addingTemplate} className="btn-primary">{addingTemplate ? "Adding..." : "Add"}</button>
           </div>
         </form>
       </section>
@@ -474,7 +560,7 @@ export default function ProjectSettingsPage() {
                   {describeTrigger(r)} &rarr; {describeAction(r)}
                 </span>
               </div>
-              <button onClick={() => deleteRule(r.id)} className="text-xs text-red-400/70 hover:text-red-400 transition-colors shrink-0 ml-2">
+              <button onClick={() => confirmDeleteRule(r.id)} className="text-xs text-red-400/70 hover:text-red-400 transition-colors shrink-0 ml-2">
                 Delete
               </button>
             </div>
@@ -594,7 +680,7 @@ export default function ProjectSettingsPage() {
                 className="input-base flex-1"
               />
             )}
-            <button type="submit" className="btn-primary">Add</button>
+            <button type="submit" disabled={addingRule} className="btn-primary">{addingRule ? "Adding..." : "Add"}</button>
           </div>
           {newRuleAction === "notify_user" && (
             <input
@@ -728,10 +814,15 @@ export default function ProjectSettingsPage() {
                   </button>
                 )}
                 <button
-                  onClick={async () => {
-                    await api.delete(`${basePath}/sprints/${s.id}`);
-                    setSprints(sprints.filter((x) => x.id !== s.id));
-                  }}
+                  onClick={() => setConfirmState({
+                    title: "Delete sprint",
+                    message: `This will remove "${s.name}" and unassign all items from this sprint.`,
+                    action: async () => {
+                      await api.delete(`${basePath}/sprints/${s.id}`);
+                      setSprints(sprints.filter((x) => x.id !== s.id));
+                      toast.success("Sprint deleted");
+                    },
+                  })}
                   className="text-xs text-red-400/70 hover:text-red-400 transition-colors"
                 >
                   Delete
@@ -743,17 +834,22 @@ export default function ProjectSettingsPage() {
         <form
           onSubmit={async (e) => {
             e.preventDefault();
-            const sprint = await api.post<Sprint>(`${basePath}/sprints`, {
-              name: newSprintName,
-              start_date: newSprintStart,
-              end_date: newSprintEnd,
-              goal: newSprintGoal || null,
-            });
-            setSprints([...sprints, sprint]);
-            setNewSprintName("");
-            setNewSprintStart("");
-            setNewSprintEnd("");
-            setNewSprintGoal("");
+            setAddingSprint(true);
+            try {
+              const sprint = await api.post<Sprint>(`${basePath}/sprints`, {
+                name: newSprintName,
+                start_date: newSprintStart,
+                end_date: newSprintEnd,
+                goal: newSprintGoal || null,
+              });
+              setSprints([...sprints, sprint]);
+              setNewSprintName("");
+              setNewSprintStart("");
+              setNewSprintEnd("");
+              setNewSprintGoal("");
+              toast.success("Sprint created");
+            } catch { toast.error("Failed to create sprint"); }
+            finally { setAddingSprint(false); }
           }}
           className="space-y-2"
         >
@@ -766,7 +862,7 @@ export default function ProjectSettingsPage() {
           </div>
           <div className="flex flex-col sm:flex-row gap-2">
             <input type="text" value={newSprintGoal} onChange={(e) => setNewSprintGoal(e.target.value)} placeholder="Sprint goal (optional)" className="input-base flex-1" />
-            <button type="submit" className="btn-primary">Add</button>
+            <button type="submit" disabled={addingSprint} className="btn-primary">{addingSprint ? "Adding..." : "Add"}</button>
           </div>
         </form>
       </section>
@@ -797,10 +893,15 @@ export default function ProjectSettingsPage() {
                   <option value="admin">Admin</option>
                 </select>
                 <button
-                  onClick={async () => {
-                    await api.delete(`${basePath}/project-members/${pm.user_id}`);
-                    setProjectMembers(projectMembers.filter((x) => x.user_id !== pm.user_id));
-                  }}
+                  onClick={() => setConfirmState({
+                    title: "Remove member",
+                    message: `Remove ${pm.display_name} from this project? They will lose access.`,
+                    action: async () => {
+                      await api.delete(`${basePath}/project-members/${pm.user_id}`);
+                      setProjectMembers(projectMembers.filter((x) => x.user_id !== pm.user_id));
+                      toast.success("Member removed");
+                    },
+                  })}
                   className="text-xs text-red-400/70 hover:text-red-400 transition-colors"
                 >
                   Remove
@@ -812,12 +913,16 @@ export default function ProjectSettingsPage() {
         <form
           onSubmit={async (e) => {
             e.preventDefault();
-            const pm = await api.post<ProjectMember>(`${basePath}/project-members`, {
-              email: newMemberEmail,
-              role: newMemberRole,
-            });
-            setProjectMembers([...projectMembers, pm]);
-            setNewMemberEmail("");
+            setAddingMember(true);
+            try {
+              const pm = await api.post<ProjectMember>(`${basePath}/project-members`, {
+                email: newMemberEmail,
+                role: newMemberRole,
+              });
+              setProjectMembers([...projectMembers, pm]);
+              setNewMemberEmail("");
+            } catch { toast.error("Failed to add member"); }
+            finally { setAddingMember(false); }
           }}
           className="flex flex-col sm:flex-row gap-2"
         >
@@ -827,7 +932,7 @@ export default function ProjectSettingsPage() {
             <option value="editor">Editor</option>
             <option value="admin">Admin</option>
           </select>
-          <button type="submit" className="btn-primary">Add</button>
+          <button type="submit" disabled={addingMember} className="btn-primary">{addingMember ? "Adding..." : "Add"}</button>
         </form>
       </section>
 

@@ -3,19 +3,22 @@
 import { useEffect, useState, useCallback } from "react";
 import { api } from "@/lib/api";
 import type { AdminAuditLogEntry } from "@/lib/types";
+import { SkeletonTable } from "@/components/Skeleton";
 
 export default function AdminAuditPage() {
   const [logs, setLogs] = useState<AdminAuditLogEntry[]>([]);
   const [entityType, setEntityType] = useState("");
   const [actionFilter, setActionFilter] = useState("");
   const [offset, setOffset] = useState(0);
+  const [loading, setLoading] = useState(true);
   const LIMIT = 50;
 
   const load = useCallback(() => {
     const params = new URLSearchParams({ limit: String(LIMIT), offset: String(offset) });
     if (entityType) params.set("entity_type", entityType);
     if (actionFilter) params.set("action", actionFilter);
-    api.get<AdminAuditLogEntry[]>(`/admin/audit-log?${params}`).then(setLogs);
+    setLoading(true);
+    api.get<AdminAuditLogEntry[]>(`/admin/audit-log?${params}`).then(setLogs).finally(() => setLoading(false));
   }, [entityType, actionFilter, offset]);
 
   useEffect(() => {
@@ -61,7 +64,7 @@ export default function AdminAuditPage() {
         </div>
       </div>
 
-      <div className="space-y-2">
+      {loading ? <SkeletonTable rows={8} cols={5} /> : <div className="space-y-2">
         {logs.length === 0 && (
           <div className="text-center py-12 text-[var(--text-muted)] text-sm">
             No audit log entries found
@@ -97,7 +100,7 @@ export default function AdminAuditPage() {
             </span>
           </div>
         ))}
-      </div>
+      </div>}
 
       {logs.length === LIMIT && (
         <div className="flex justify-center gap-3 mt-4">

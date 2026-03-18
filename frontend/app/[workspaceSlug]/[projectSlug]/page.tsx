@@ -13,6 +13,7 @@ import TimelineView from "@/components/TimelineView";
 import SprintBacklog from "@/components/SprintBacklog";
 import TableView from "@/components/TableView";
 import SearchModal from "@/components/SearchModal";
+import { PageSkeleton } from "@/components/Skeleton";
 import ShortcutHelp from "@/components/ShortcutHelp";
 import BulkToolbar from "@/components/BulkToolbar";
 import BoardSettingsPopover from "@/components/BoardSettingsPopover";
@@ -252,14 +253,7 @@ export default function ProjectBoardPage() {
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 animate-pulse" />
-          <span className="text-sm text-[var(--text-muted)]">Loading board...</span>
-        </div>
-      </div>
-    );
+    return <PageSkeleton text="Loading board..." />;
   }
 
   return (

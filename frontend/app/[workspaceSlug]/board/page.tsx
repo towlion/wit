@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { api } from "@/lib/api";
 import type { CrossProjectItem } from "@/lib/types";
+import { PageSkeleton } from "@/components/Skeleton";
 
 const PRIORITY_STYLES: Record<string, string> = {
   urgent: "bg-red-500/15 text-red-400 border-red-500/20",
@@ -128,14 +129,7 @@ export default function CrossProjectBoardPage() {
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 animate-pulse" />
-          <span className="text-sm text-[var(--text-muted)]">Loading board...</span>
-        </div>
-      </div>
-    );
+    return <PageSkeleton text="Loading board..." />;
   }
 
   // Group items within each category column

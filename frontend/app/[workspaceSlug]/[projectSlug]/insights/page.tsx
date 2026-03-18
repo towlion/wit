@@ -9,6 +9,7 @@ import BarChart from "@/components/BarChart";
 import LineChart from "@/components/LineChart";
 import StackedBar from "@/components/StackedBar";
 import StackedAreaChart from "@/components/StackedAreaChart";
+import { PageSkeleton } from "@/components/Skeleton";
 
 const PRIORITY_COLORS: Record<string, string> = {
   urgent: "#ef4444",
@@ -59,14 +60,7 @@ export default function ProjectInsightsPage() {
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 animate-pulse" />
-          <span className="text-sm text-[var(--text-muted)]">Loading insights...</span>
-        </div>
-      </div>
-    );
+    return <PageSkeleton text="Loading insights..." />;
   }
 
   if (!data) {

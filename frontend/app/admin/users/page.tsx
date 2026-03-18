@@ -3,17 +3,20 @@
 import { useEffect, useState, useCallback } from "react";
 import { api } from "@/lib/api";
 import type { AdminUser } from "@/lib/types";
+import { SkeletonTable } from "@/components/Skeleton";
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [search, setSearch] = useState("");
   const [offset, setOffset] = useState(0);
+  const [loading, setLoading] = useState(true);
   const LIMIT = 50;
 
   const load = useCallback(() => {
     const params = new URLSearchParams({ limit: String(LIMIT), offset: String(offset) });
     if (search) params.set("search", search);
-    api.get<AdminUser[]>(`/admin/users?${params}`).then(setUsers);
+    setLoading(true);
+    api.get<AdminUser[]>(`/admin/users?${params}`).then(setUsers).finally(() => setLoading(false));
   }, [search, offset]);
 
   useEffect(() => {
@@ -38,7 +41,7 @@ export default function AdminUsersPage() {
         />
       </div>
 
-      <div className="card-surface overflow-hidden">
+      {loading ? <SkeletonTable rows={5} cols={6} /> : <div className="card-surface overflow-hidden">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-[var(--border)]">
@@ -103,7 +106,7 @@ export default function AdminUsersPage() {
             ))}
           </tbody>
         </table>
-      </div>
+      </div>}
 
       {users.length === LIMIT && (
         <div className="flex justify-center gap-3 mt-4">

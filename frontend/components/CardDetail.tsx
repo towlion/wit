@@ -156,10 +156,12 @@ export default function CardDetail({ item, basePath, wsSlug, onClose, onUpdate, 
   }
 
   async function handleDeleteAttachment(id: number) {
+    const prev = attachments;
+    setAttachments((a) => a.filter((x) => x.id !== id));
     try {
       await api.delete(`${itemPath}/attachments/${id}`);
-      setAttachments((prev) => prev.filter((a) => a.id !== id));
     } catch {
+      setAttachments(prev);
       toast.error("Failed to delete attachment");
     }
   }
@@ -218,19 +220,24 @@ export default function CardDetail({ item, basePath, wsSlug, onClose, onUpdate, 
   }
 
   async function handleToggleSubtask(subtask: Subtask) {
+    const prev = subtasks;
+    setSubtasks((s) => s.map((x) => x.id === subtask.id ? { ...x, completed: !x.completed } : x));
     try {
       const updated = await api.patch<Subtask>(`${itemPath}/subtasks/${subtask.id}`, { completed: !subtask.completed });
-      setSubtasks((prev) => prev.map((s) => s.id === subtask.id ? updated : s));
+      setSubtasks((s) => s.map((x) => x.id === subtask.id ? updated : x));
     } catch {
+      setSubtasks(prev);
       toast.error("Failed to update subtask");
     }
   }
 
   async function handleDeleteSubtask(subtaskId: number) {
+    const prev = subtasks;
+    setSubtasks((s) => s.filter((x) => x.id !== subtaskId));
     try {
       await api.delete(`${itemPath}/subtasks/${subtaskId}`);
-      setSubtasks((prev) => prev.filter((s) => s.id !== subtaskId));
     } catch {
+      setSubtasks(prev);
       toast.error("Failed to delete subtask");
     }
   }

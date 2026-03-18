@@ -6,6 +6,7 @@ import { api } from "@/lib/api";
 import type { Workspace, Member, ActivityEvent, WorkspaceStats, WorkspaceInsights, WorkspaceMemberWorkload } from "@/lib/types";
 import LineChart from "@/components/LineChart";
 import StackedBar from "@/components/StackedBar";
+import ConfirmDialog from "@/components/ConfirmDialog";
 import { useToast } from "@/lib/toast";
 
 interface Invite {
@@ -56,6 +57,13 @@ export default function WorkspaceSettingsPage() {
   const [wsWorkload, setWsWorkload] = useState<WorkspaceMemberWorkload[]>([]);
   const { toast } = useToast();
 
+  // Confirm dialog
+  const [confirmState, setConfirmState] = useState<{ action: () => Promise<void>; title: string; message: string } | null>(null);
+  const [confirmLoading, setConfirmLoading] = useState(false);
+
+  // Button loading
+  const [inviting, setInviting] = useState(false);
+
   useEffect(() => {
     api.get<Workspace>(`/workspaces/${wsSlug}`).then(setWorkspace).catch(() => toast.error("Failed to load workspace settings"));
     api.get<Invite[]>(`/workspaces/${wsSlug}/invites`).then(setInvites).catch(() => toast.error("Failed to load invites"));
@@ -93,20 +101,28 @@ export default function WorkspaceSettingsPage() {
     }
   }
 
-  async function removeMember(userId: number) {
-    try {
-      await api.delete(`/workspaces/${wsSlug}/members/${userId}`);
-      const ws = await api.get<Workspace>(`/workspaces/${wsSlug}`);
-      setWorkspace(ws);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to remove member");
-    }
+  function confirmRemoveMember(member: Member) {
+    setConfirmState({
+      title: "Remove member",
+      message: `Remove ${member.display_name} from this workspace? They will lose access to all projects.`,
+      action: async () => {
+        await api.delete(`/workspaces/${wsSlug}/members/${member.user_id}`);
+        const ws = await api.get<Workspace>(`/workspaces/${wsSlug}`);
+        setWorkspace(ws);
+        toast.success("Member removed");
+      },
+    });
   }
 
   async function createInvite(e: FormEvent) {
     e.preventDefault();
-    const invite = await api.post<Invite>(`/workspaces/${wsSlug}/invites`, { role: inviteRole });
-    setInvites([invite, ...invites]);
+    setInviting(true);
+    try {
+      const invite = await api.post<Invite>(`/workspaces/${wsSlug}/invites`, { role: inviteRole });
+      setInvites([invite, ...invites]);
+      toast.success("Invite link created");
+    } catch { toast.error("Failed to create invite"); }
+    finally { setInviting(false); }
   }
 
   async function revokeInvite(id: number) {
@@ -124,14 +140,24 @@ export default function WorkspaceSettingsPage() {
   async function addWebhook(e: FormEvent) {
     e.preventDefault();
     if (!webhookUrl.trim()) return;
-    const webhook = await api.post<Webhook>(`/workspaces/${wsSlug}/webhooks`, { url: webhookUrl });
-    setWebhooks([...webhooks, webhook]);
-    setWebhookUrl("");
+    try {
+      const webhook = await api.post<Webhook>(`/workspaces/${wsSlug}/webhooks`, { url: webhookUrl });
+      setWebhooks([...webhooks, webhook]);
+      setWebhookUrl("");
+      toast.success("Webhook created");
+    } catch { toast.error("Failed to create webhook"); }
   }
 
-  async function deleteWebhook(id: number) {
-    await api.delete(`/workspaces/${wsSlug}/webhooks/${id}`);
-    setWebhooks(webhooks.filter((w) => w.id !== id));
+  function confirmDeleteWebhook(wh: Webhook) {
+    setConfirmState({
+      title: "Delete webhook",
+      message: `Delete webhook to ${wh.url}? Integrations using this webhook will stop receiving events.`,
+      action: async () => {
+        await api.delete(`/workspaces/${wsSlug}/webhooks/${wh.id}`);
+        setWebhooks(webhooks.filter((w) => w.id !== wh.id));
+        toast.success("Webhook deleted");
+      },
+    });
   }
 
   function timeAgo(dateStr: string): string {
@@ -173,6 +199,24 @@ export default function WorkspaceSettingsPage() {
 
   return (
     <div className="p-6 max-w-2xl animate-fade-in">
+      <ConfirmDialog
+        open={confirmState !== null}
+        title={confirmState?.title ?? ""}
+        message={confirmState?.message ?? ""}
+        loading={confirmLoading}
+        onConfirm={async () => {
+          if (!confirmState) return;
+          setConfirmLoading(true);
+          try {
+            await confirmState.action();
+          } catch { toast.error("Operation failed"); }
+          finally {
+            setConfirmLoading(false);
+            setConfirmState(null);
+          }
+        }}
+        onCancel={() => setConfirmState(null)}
+      />
       <h1 className="text-xl font-semibold tracking-tight mb-4">Workspace settings</h1>
 
       {/* Tab navigation */}
@@ -214,7 +258,7 @@ export default function WorkspaceSettingsPage() {
                       {m.role}
                     </span>
                     {m.role !== "owner" && (
-                      <button onClick={() => removeMember(m.user_id)} className="text-xs text-red-400/70 hover:text-red-400 transition-colors">
+                      <button onClick={() => confirmRemoveMember(m)} className="text-xs text-red-400/70 hover:text-red-400 transition-colors">
                         Remove
                       </button>
                     )}
@@ -282,7 +326,7 @@ export default function WorkspaceSettingsPage() {
                 <option value="admin">Admin</option>
                 <option value="guest">Guest</option>
               </select>
-              <button type="submit" className="btn-primary">Create invite</button>
+              <button type="submit" disabled={inviting} className="btn-primary">{inviting ? "Sending..." : "Create invite"}</button>
             </form>
           </section>
 
@@ -298,7 +342,7 @@ export default function WorkspaceSettingsPage() {
                     <div className={`w-2 h-2 rounded-full ${wh.active ? "bg-green-500" : "bg-zinc-500"}`} />
                     <span className="text-xs truncate font-mono">{wh.url}</span>
                   </div>
-                  <button onClick={() => deleteWebhook(wh.id)} className="text-xs text-red-400/70 hover:text-red-400 transition-colors shrink-0 ml-2">
+                  <button onClick={() => confirmDeleteWebhook(wh)} className="text-xs text-red-400/70 hover:text-red-400 transition-colors shrink-0 ml-2">
                     Delete
                   </button>
                 </div>

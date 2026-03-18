@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 import { useToast } from "@/lib/toast";
+import ConfirmDialog from "@/components/ConfirmDialog";
+import { SkeletonBlock } from "@/components/Skeleton";
 import type { User, ApiToken, ApiTokenCreated } from "@/lib/types";
 
 export default function ProfilePage() {
@@ -29,12 +31,16 @@ export default function ProfilePage() {
   const [tokenCopied, setTokenCopied] = useState(false);
   const [tokenErr, setTokenErr] = useState("");
   const [tokenCreating, setTokenCreating] = useState(false);
+  const [tokensLoading, setTokensLoading] = useState(true);
+  const [revokeTarget, setRevokeTarget] = useState<ApiToken | null>(null);
+  const [revokeLoading, setRevokeLoading] = useState(false);
 
   const loadTokens = useCallback(async () => {
     try {
       const data = await api.get<ApiToken[]>("/profile/tokens");
       setTokens(data);
     } catch { toast.error("Failed to load API tokens"); }
+    finally { setTokensLoading(false); }
   }, []);
 
   useEffect(() => {
@@ -108,11 +114,16 @@ export default function ProfilePage() {
     }
   }
 
-  async function handleRevokeToken(tokenId: number) {
+  async function handleRevokeToken() {
+    if (!revokeTarget) return;
+    setRevokeLoading(true);
     try {
-      await api.delete(`/profile/tokens/${tokenId}`);
+      await api.delete(`/profile/tokens/${revokeTarget.id}`);
       loadTokens();
+      setRevokeTarget(null);
+      toast.success("Token revoked");
     } catch { toast.error("Failed to revoke token"); }
+    finally { setRevokeLoading(false); }
   }
 
   function handleCopyToken() {
@@ -335,7 +346,22 @@ export default function ProfilePage() {
           {tokenErr && <p className="text-sm text-red-400 mt-2">{tokenErr}</p>}
         </form>
 
-        {tokens.length > 0 && (
+        <ConfirmDialog
+          open={revokeTarget !== null}
+          title="Revoke API token"
+          message={`Revoke "${revokeTarget?.name}"? Any integrations using this token will stop working.`}
+          confirmLabel="Revoke"
+          loading={revokeLoading}
+          onConfirm={handleRevokeToken}
+          onCancel={() => setRevokeTarget(null)}
+        />
+
+        {tokensLoading ? (
+          <div className="space-y-2">
+            <SkeletonBlock height="48px" />
+            <SkeletonBlock height="48px" />
+          </div>
+        ) : tokens.length > 0 ? (
           <div className="rounded-lg border border-[var(--border)] overflow-hidden">
             <table className="w-full text-sm">
               <thead>
@@ -362,7 +388,7 @@ export default function ProfilePage() {
                     <td className="px-3 py-2 text-[var(--text-secondary)]">{formatDate(t.expires_at)}</td>
                     <td className="px-3 py-2 text-right">
                       <button
-                        onClick={() => handleRevokeToken(t.id)}
+                        onClick={() => setRevokeTarget(t)}
                         className="text-xs text-red-400 hover:text-red-300 transition-colors"
                       >
                         Revoke
@@ -373,9 +399,7 @@ export default function ProfilePage() {
               </tbody>
             </table>
           </div>
-        )}
-
-        {tokens.length === 0 && (
+        ) : (
           <p className="text-sm text-[var(--text-secondary)]">No API tokens yet.</p>
         )}
       </div>
