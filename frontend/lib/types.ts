@@ -313,11 +313,17 @@ export interface RecentlyCompletedItem {
   completed_by: string | null;
 }
 
+export interface CfdColumnPoint {
+  date: string;
+  columns: Record<string, number>;
+}
+
 export interface ProjectInsights {
   status_distribution: StatusDistributionItem[];
   priority_distribution: PriorityDistributionItem[];
   burndown: BurndownPoint[];
   cfd: CfdPoint[];
+  cfd_columns: CfdColumnPoint[] | null;
   cycle_time: CycleTimeStats;
   member_breakdown: MemberBreakdownItem[];
   recently_completed: RecentlyCompletedItem[];

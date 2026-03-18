@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { api } from "@/lib/api";
-import type { ProjectInsights, ProjectWorkload } from "@/lib/types";
+import type { ProjectInsights, ProjectWorkload, CfdColumnPoint } from "@/lib/types";
 import BarChart from "@/components/BarChart";
 import LineChart from "@/components/LineChart";
 import StackedBar from "@/components/StackedBar";
@@ -26,13 +26,15 @@ export default function ProjectInsightsPage() {
   const [data, setData] = useState<ProjectInsights | null>(null);
   const [workload, setWorkload] = useState<ProjectWorkload | null>(null);
   const [loading, setLoading] = useState(true);
+  const [cfdDays, setCfdDays] = useState(30);
+  const [cfdMode, setCfdMode] = useState<"category" | "column">("category");
 
   useEffect(() => {
     Promise.all([
-      api.get<ProjectInsights>(`${basePath}/insights`).then(setData),
+      api.get<ProjectInsights>(`${basePath}/insights?days=${cfdDays}&cfd_mode=${cfdMode}`).then(setData),
       api.get<ProjectWorkload>(`${basePath}/workload`).then(setWorkload).catch(() => null),
     ]).finally(() => setLoading(false));
-  }, [basePath]);
+  }, [basePath, cfdDays, cfdMode]);
 
   function handleExport() {
     const token = localStorage.getItem("token");
@@ -140,7 +142,7 @@ export default function ProjectInsightsPage() {
       {/* Burndown */}
       <div className="card-surface p-4 mb-6">
         <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-3">
-          Burndown (30 days)
+          Burndown ({cfdDays} days)
         </h2>
         {data.burndown.length > 0 ? (
           <LineChart
@@ -157,10 +159,65 @@ export default function ProjectInsightsPage() {
 
       {/* Cumulative Flow */}
       <div className="card-surface p-4 mb-6">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-3">
-          Cumulative Flow (30 days)
-        </h2>
-        {data.cfd.length > 0 ? (
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+            Cumulative Flow ({cfdDays} days)
+          </h2>
+          <div className="flex items-center gap-2">
+            <div className="flex rounded-md border border-[var(--border)] overflow-hidden">
+              {[7, 14, 30, 60, 90].map((d) => (
+                <button
+                  key={d}
+                  onClick={() => setCfdDays(d)}
+                  className={`px-2 py-0.5 text-[11px] transition-colors ${
+                    cfdDays === d
+                      ? "bg-[var(--accent)] text-white"
+                      : "text-[var(--text-muted)] hover:bg-[var(--bg-hover)]"
+                  }`}
+                >
+                  {d}d
+                </button>
+              ))}
+            </div>
+            <div className="flex rounded-md border border-[var(--border)] overflow-hidden">
+              {(["category", "column"] as const).map((mode) => (
+                <button
+                  key={mode}
+                  onClick={() => setCfdMode(mode)}
+                  className={`px-2 py-0.5 text-[11px] capitalize transition-colors ${
+                    cfdMode === mode
+                      ? "bg-[var(--accent)] text-white"
+                      : "text-[var(--text-muted)] hover:bg-[var(--bg-hover)]"
+                  }`}
+                >
+                  {mode}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+        {cfdMode === "column" && data.cfd_columns ? (
+          (() => {
+            const columnNames = Object.keys(data.cfd_columns[0]?.columns || {});
+            const colorMap: Record<string, string> = {};
+            for (const sd of data.status_distribution) {
+              colorMap[sd.state_name] = sd.color;
+            }
+            return (
+              <StackedAreaChart
+                points={data.cfd_columns.map((c) => ({
+                  label: c.date.slice(5),
+                  values: c.columns,
+                }))}
+                series={columnNames.map((name) => ({
+                  key: name,
+                  label: name,
+                  color: colorMap[name] || "#6b7280",
+                }))}
+              />
+            );
+          })()
+        ) : data.cfd.length > 0 ? (
           <StackedAreaChart
             points={data.cfd.map((c) => ({
               label: c.date.slice(5),

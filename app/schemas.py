@@ -732,12 +732,19 @@ class RecentlyCompletedItem(BaseModel):
     completed_by: str | None
 
 
+class CfdColumnPoint(BaseModel):
+    """Daily CFD data point with per-column breakdown."""
+    date: date
+    columns: dict[str, int]
+
+
 class ProjectInsightsResponse(BaseModel):
     """Project analytics dashboard data."""
     status_distribution: list[StatusDistributionItem]
     priority_distribution: list[PriorityDistributionItem]
     burndown: list[BurndownPoint]
     cfd: list[CfdPoint]
+    cfd_columns: list[CfdColumnPoint] | None = None
     cycle_time: CycleTimeStats
     member_breakdown: list[MemberBreakdown]
     recently_completed: list[RecentlyCompletedItem]

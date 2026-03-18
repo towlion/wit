@@ -1,3 +1,7 @@
+"use client";
+
+import { useCallback, useRef, useState } from "react";
+
 interface Series {
   key: string;
   label: string;
@@ -16,6 +20,9 @@ export default function StackedAreaChart({
   points: DataPoint[];
   series: Series[];
 }) {
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
+
   if (points.length === 0) {
     return (
       <div className="text-center py-8 text-sm text-[var(--text-muted)]">No data</div>
@@ -72,9 +79,35 @@ export default function StackedAreaChart({
     };
   });
 
+  const handleMouseMove = useCallback(
+    (e: React.MouseEvent<SVGSVGElement>) => {
+      const svg = svgRef.current;
+      if (!svg) return;
+      const rect = svg.getBoundingClientRect();
+      const mouseX = ((e.clientX - rect.left) / rect.width) * chartW;
+      const idx = Math.round((mouseX - padding.left) / stepX);
+      const clamped = Math.max(0, Math.min(points.length - 1, idx));
+      setHoveredIndex(clamped);
+    },
+    [chartW, padding.left, stepX, points.length],
+  );
+
+  const handleMouseLeave = useCallback(() => setHoveredIndex(null), []);
+
+  // Tooltip position as percentage for the wrapper div
+  const tooltipLeftPct = hoveredIndex !== null ? (toX(hoveredIndex) / chartW) * 100 : 0;
+
   return (
-    <div>
-      <svg viewBox={`0 0 ${chartW} ${height}`} className="w-full" preserveAspectRatio="none" style={{ height }}>
+    <div style={{ position: "relative" }}>
+      <svg
+        ref={svgRef}
+        viewBox={`0 0 ${chartW} ${height}`}
+        className="w-full"
+        preserveAspectRatio="none"
+        style={{ height }}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
+      >
         {/* Grid */}
         {gridLines.map((g) => (
           <g key={g.y}>
@@ -105,6 +138,19 @@ export default function StackedAreaChart({
             <path d={a.strokePath} fill="none" stroke={a.color} strokeWidth={1} />
           </g>
         ))}
+        {/* Hover indicator line */}
+        {hoveredIndex !== null && (
+          <line
+            x1={toX(hoveredIndex)}
+            y1={padding.top}
+            x2={toX(hoveredIndex)}
+            y2={padding.top + chartH}
+            stroke="var(--text-secondary)"
+            strokeWidth={1}
+            strokeDasharray="3 3"
+            opacity={0.7}
+          />
+        )}
         {/* X-axis labels */}
         {points.map((p, i) => {
           if (points.length <= 10 || i % 5 === 0 || i === points.length - 1) {
@@ -123,6 +169,28 @@ export default function StackedAreaChart({
           return null;
         })}
       </svg>
+      {/* Tooltip */}
+      {hoveredIndex !== null && (
+        <div
+          className="absolute pointer-events-none bg-[var(--bg-surface)] border border-[var(--border)] rounded-md shadow-lg px-3 py-2 text-xs z-10"
+          style={{
+            left: `${tooltipLeftPct}%`,
+            top: 4,
+            transform: tooltipLeftPct > 70 ? "translateX(-100%)" : "translateX(-50%)",
+          }}
+        >
+          <div className="font-medium text-[var(--text-primary)] mb-1">
+            {points[hoveredIndex].label}
+          </div>
+          {[...series].reverse().map((s) => (
+            <div key={s.key} className="flex items-center gap-1.5 py-0.5">
+              <span className="w-2 h-2 rounded-sm shrink-0" style={{ backgroundColor: s.color }} />
+              <span className="text-[var(--text-muted)]">{s.label}:</span>
+              <span className="font-medium tabular-nums">{points[hoveredIndex].values[s.key] || 0}</span>
+            </div>
+          ))}
+        </div>
+      )}
       {/* Legend */}
       <div className="flex items-center gap-4 mt-2 justify-center">
         {series.map((s) => (

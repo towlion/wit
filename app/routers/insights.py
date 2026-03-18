@@ -26,6 +26,7 @@ from app.schemas import (
     ActiveMemberSummary,
     ActivityTrendPoint,
     BurndownPoint,
+    CfdColumnPoint,
     CfdPoint,
     CycleTimeStats,
     MemberBreakdown,
@@ -68,10 +69,13 @@ def _sanitize_csv_cell(value: str) -> str:
 def project_insights(
     ws_slug: str,
     project_slug: str,
+    days: int = 30,
+    cfd_mode: str = "category",
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Get project analytics: status/priority distribution, burndown, cycle time, member breakdown."""
+    days = max(7, min(days, 90))
     _, project = _resolve_project(ws_slug, project_slug, user, db)
 
     # Status distribution
@@ -114,7 +118,7 @@ def project_insights(
         state_name_to_category[s.name] = s.category
 
     today = date.today()
-    thirty_days_ago = today - timedelta(days=30)
+    start_date = today - timedelta(days=days)
 
     current_remaining = (
         db.query(func.count(WorkItem.id))
@@ -134,7 +138,7 @@ def project_insights(
         .filter(
             WorkItem.project_id == project.id,
             ActivityEvent.event_type == "status_change",
-            ActivityEvent.created_at >= datetime(thirty_days_ago.year, thirty_days_ago.month, thirty_days_ago.day, tzinfo=timezone.utc),
+            ActivityEvent.created_at >= datetime(start_date.year, start_date.month, start_date.day, tzinfo=timezone.utc),
         )
         .order_by(ActivityEvent.created_at.desc())
         .all()
@@ -145,7 +149,7 @@ def project_insights(
     remaining = current_remaining
     event_idx = 0
 
-    for day_offset in range(31):
+    for day_offset in range(days + 1):
         d = today - timedelta(days=day_offset)
         # Process events that happened on this day (reverse their effect)
         while event_idx < len(status_events):
@@ -171,29 +175,80 @@ def project_insights(
 
     cfd_counts = dict(current_cfd)
     cfd = []
+    cfd_columns = None
     cfd_event_idx = 0
-    for day_offset in range(31):
-        d = today - timedelta(days=day_offset)
-        while cfd_event_idx < len(status_events):
-            ev = status_events[cfd_event_idx]
-            ev_date = ev.created_at.date()
-            if ev_date < d:
-                break
-            if ev_date == d:
-                old_cat = state_name_to_category.get(ev.old_value)
-                new_cat = state_name_to_category.get(ev.new_value)
-                if new_cat and new_cat in cfd_counts:
-                    cfd_counts[new_cat] -= 1
-                if old_cat and old_cat in cfd_counts:
-                    cfd_counts[old_cat] += 1
-            cfd_event_idx += 1
-        cfd.append(CfdPoint(
-            date=d,
-            todo=max(cfd_counts["todo"], 0),
-            in_progress=max(cfd_counts["in_progress"], 0),
-            done=max(cfd_counts["done"], 0),
-        ))
-    cfd.reverse()
+
+    if cfd_mode == "column":
+        # Per-column CFD: track counts per workflow state name
+        col_counts: dict[str, int] = {}
+        for sd in status_distribution:
+            col_counts[sd.state_name] = sd.count
+        cfd_columns = []
+        for day_offset in range(days + 1):
+            d = today - timedelta(days=day_offset)
+            while cfd_event_idx < len(status_events):
+                ev = status_events[cfd_event_idx]
+                ev_date = ev.created_at.date()
+                if ev_date < d:
+                    break
+                if ev_date == d:
+                    if ev.new_value and ev.new_value in col_counts:
+                        col_counts[ev.new_value] -= 1
+                    if ev.old_value and ev.old_value in col_counts:
+                        col_counts[ev.old_value] += 1
+                cfd_event_idx += 1
+            cfd_columns.append(CfdColumnPoint(
+                date=d,
+                columns={k: max(v, 0) for k, v in col_counts.items()},
+            ))
+        cfd_columns.reverse()
+        # Still build category CFD for the response
+        cfd_event_idx2 = 0
+        for day_offset in range(days + 1):
+            d = today - timedelta(days=day_offset)
+            while cfd_event_idx2 < len(status_events):
+                ev = status_events[cfd_event_idx2]
+                ev_date = ev.created_at.date()
+                if ev_date < d:
+                    break
+                if ev_date == d:
+                    old_cat = state_name_to_category.get(ev.old_value)
+                    new_cat = state_name_to_category.get(ev.new_value)
+                    if new_cat and new_cat in cfd_counts:
+                        cfd_counts[new_cat] -= 1
+                    if old_cat and old_cat in cfd_counts:
+                        cfd_counts[old_cat] += 1
+                cfd_event_idx2 += 1
+            cfd.append(CfdPoint(
+                date=d,
+                todo=max(cfd_counts["todo"], 0),
+                in_progress=max(cfd_counts["in_progress"], 0),
+                done=max(cfd_counts["done"], 0),
+            ))
+        cfd.reverse()
+    else:
+        for day_offset in range(days + 1):
+            d = today - timedelta(days=day_offset)
+            while cfd_event_idx < len(status_events):
+                ev = status_events[cfd_event_idx]
+                ev_date = ev.created_at.date()
+                if ev_date < d:
+                    break
+                if ev_date == d:
+                    old_cat = state_name_to_category.get(ev.old_value)
+                    new_cat = state_name_to_category.get(ev.new_value)
+                    if new_cat and new_cat in cfd_counts:
+                        cfd_counts[new_cat] -= 1
+                    if old_cat and old_cat in cfd_counts:
+                        cfd_counts[old_cat] += 1
+                cfd_event_idx += 1
+            cfd.append(CfdPoint(
+                date=d,
+                todo=max(cfd_counts["todo"], 0),
+                in_progress=max(cfd_counts["in_progress"], 0),
+                done=max(cfd_counts["done"], 0),
+            ))
+        cfd.reverse()
 
     # Cycle time
     done_state_ids = {s.id for s in states if s.category == "done"}
@@ -349,6 +404,7 @@ def project_insights(
         priority_distribution=priority_distribution,
         burndown=burndown,
         cfd=cfd,
+        cfd_columns=cfd_columns,
         cycle_time=cycle_time,
         member_breakdown=member_breakdown,
         recently_completed=recently_completed,
