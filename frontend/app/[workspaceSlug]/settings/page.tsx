@@ -232,7 +232,7 @@ export default function WorkspaceSettingsPage() {
               </div>
             )}
 
-            <form onSubmit={addMember} className="flex gap-2">
+            <form onSubmit={addMember} className="flex flex-col sm:flex-row gap-2">
               <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email address" required className="input-base flex-1" />
               <select value={role} onChange={(e) => setRole(e.target.value)} className="input-base w-auto">
                 <option value="member">Member</option>
@@ -276,7 +276,7 @@ export default function WorkspaceSettingsPage() {
                 </div>
               ))}
             </div>
-            <form onSubmit={createInvite} className="flex gap-2">
+            <form onSubmit={createInvite} className="flex flex-col sm:flex-row gap-2">
               <select value={inviteRole} onChange={(e) => setInviteRole(e.target.value)} className="input-base w-auto">
                 <option value="member">Member</option>
                 <option value="admin">Admin</option>
@@ -304,7 +304,7 @@ export default function WorkspaceSettingsPage() {
                 </div>
               ))}
             </div>
-            <form onSubmit={addWebhook} className="flex gap-2">
+            <form onSubmit={addWebhook} className="flex flex-col sm:flex-row gap-2">
               <input
                 type="url"
                 value={webhookUrl}
@@ -403,13 +403,13 @@ export default function WorkspaceSettingsPage() {
       {activeTab === "stats" && (
         <section>
           {!stats ? (
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {[1, 2, 3, 4, 5].map((i) => (
                 <div key={i} className="h-20 skeleton" />
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {[
                 { label: "Total Items", value: stats.items_total.toLocaleString(), color: "from-indigo-500 to-violet-500" },
                 { label: "Items This Week", value: stats.items_last_7d.toLocaleString(), color: "from-emerald-500 to-teal-500" },

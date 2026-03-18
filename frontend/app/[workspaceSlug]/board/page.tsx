@@ -102,7 +102,7 @@ export default function CrossProjectBoardPage() {
 
   function renderColumn(category: typeof CATEGORY_CONFIG[number], columnItems: CrossProjectItem[]) {
     return (
-      <div key={category.key} className="flex flex-col w-80 shrink-0 rounded-xl">
+      <div key={category.key} className="flex flex-col w-64 sm:w-80 shrink-0 rounded-xl">
         <div className="mx-1.5 mt-1.5 rounded-t-lg overflow-hidden">
           <div className="h-[3px]" style={{ backgroundColor: category.color }} />
           <div className="flex items-center gap-2.5 px-3 py-2.5 bg-[var(--bg-secondary)]/50">
@@ -213,7 +213,7 @@ export default function CrossProjectBoardPage() {
 
       <div className="flex-1 flex overflow-x-auto p-4 gap-4">
         {columns.map((col) => (
-          <div key={col.key} className="flex flex-col w-80 shrink-0 rounded-xl">
+          <div key={col.key} className="flex flex-col w-64 sm:w-80 shrink-0 rounded-xl">
             <div className="mx-1.5 mt-1.5 rounded-t-lg overflow-hidden">
               <div className="h-[3px]" style={{ backgroundColor: col.color }} />
               <div className="flex items-center gap-2.5 px-3 py-2.5 bg-[var(--bg-secondary)]/50">

@@ -43,11 +43,11 @@ export default function BulkToolbar({
   if (selectedCount === 0) return null;
 
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-fade-in">
+    <div className="fixed bottom-4 left-4 right-4 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:bottom-6 z-50 animate-fade-in">
       <div
         role="toolbar"
         aria-label="Bulk actions"
-        className="flex items-center gap-3 px-5 py-3 bg-[var(--bg-secondary)] border border-[var(--border)] rounded-2xl shadow-2xl shadow-black/40 backdrop-blur-xl"
+        className="flex flex-wrap items-center gap-3 px-5 py-3 bg-[var(--bg-secondary)] border border-[var(--border)] rounded-2xl shadow-2xl shadow-black/40 backdrop-blur-xl"
         onKeyDown={(e) => { if (e.key === "Escape") { setShowMembers(false); setShowLabels(false); setShowStatuses(false); } }}
       >
         <span className="text-sm font-medium tabular-nums">

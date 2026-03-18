@@ -186,7 +186,7 @@ export default function CardDetail({ item, basePath, wsSlug, onClose, onUpdate }
 
       <div
         ref={panelRef}
-        className="relative w-full max-w-lg bg-[var(--bg-primary)] border-l border-[var(--border)] h-full overflow-y-auto animate-slide-in-right"
+        className="relative w-full max-w-full sm:max-w-lg bg-[var(--bg-primary)] border-l border-[var(--border)] h-full overflow-y-auto animate-slide-in-right"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="p-6">

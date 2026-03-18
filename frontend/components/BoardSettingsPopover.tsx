@@ -66,7 +66,7 @@ export default function BoardSettingsPopover({ settings, states, onUpdate }: Pro
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-1 w-72 card-surface p-4 shadow-2xl shadow-black/40 z-50 animate-fade-in" onKeyDown={(e) => { if (e.key === "Escape") setOpen(false); }}>
+        <div className="absolute right-[-0.5rem] sm:right-0 top-full mt-1 w-[calc(100vw-2rem)] sm:w-72 card-surface p-4 shadow-2xl shadow-black/40 z-50 animate-fade-in" onKeyDown={(e) => { if (e.key === "Escape") setOpen(false); }}>
           {/* Card display */}
           <h3 className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-2">
             Card display

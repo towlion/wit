@@ -147,7 +147,7 @@ export default function TableView({
 
   return (
     <div className="flex-1 overflow-auto p-4">
-      <table className="w-full border-collapse text-sm">
+      <table className="w-full border-collapse text-sm min-w-[700px]">
         <thead className="sticky top-0 z-10">
           <tr className="bg-[var(--bg-secondary)] border-b border-[var(--border)]">
             {selectable && (

@@ -32,7 +32,7 @@ export default function Column({ state, items, onItemCreate, onItemCreateFromTem
       ref={setNodeRef}
       role="region"
       aria-label={`${state.name} column, ${items.length} item${items.length !== 1 ? "s" : ""}`}
-      className={`flex flex-col w-72 shrink-0 rounded-xl transition-all duration-200 ${
+      className={`flex flex-col w-64 sm:w-72 shrink-0 rounded-xl transition-all duration-200 ${
         isOver ? "bg-[var(--accent-subtle)] ring-1 ring-[var(--accent)]/20" : ""
       }`}
     >

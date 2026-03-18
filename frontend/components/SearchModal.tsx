@@ -68,7 +68,7 @@ export default function SearchModal({ basePath, onClose, onSelect }: SearchModal
       <div className="absolute inset-0 bg-black/60 animate-fade-in" />
       <div
         ref={dialogRef}
-        className="relative bg-[var(--bg-primary)] border border-[var(--border)] rounded-2xl shadow-2xl shadow-black/40 w-full max-w-lg overflow-hidden animate-fade-in"
+        className="relative bg-[var(--bg-primary)] border border-[var(--border)] rounded-2xl shadow-2xl shadow-black/40 w-full max-w-[calc(100vw-2rem)] sm:max-w-lg overflow-hidden animate-fade-in"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-3 px-4 py-3 border-b border-[var(--border)]">

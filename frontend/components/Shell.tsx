@@ -16,6 +16,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [workspaces, setWorkspaces] = useState<WorkspaceListItem[]>([]);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -68,9 +69,24 @@ export default function Shell({ children }: { children: React.ReactNode }) {
           <span className="font-semibold text-sm tracking-wide text-[var(--text-primary)]">WIT</span>
         </Link>
 
-        <div className="w-px h-5 bg-[var(--border)] mx-1" />
+        <div className="w-px h-5 bg-[var(--border)] mx-1 hidden sm:block" />
 
-        <nav className="flex items-center gap-1">
+        <button
+          className="sm:hidden p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] transition-colors"
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          aria-label="Toggle navigation menu"
+          aria-expanded={mobileMenuOpen}
+        >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            {mobileMenuOpen ? (
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            ) : (
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+            )}
+          </svg>
+        </button>
+
+        <nav className="hidden sm:flex items-center gap-1">
           {workspaces.map((ws) => (
             <Link
               key={ws.slug}
@@ -178,6 +194,25 @@ export default function Shell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </header>
+
+      {mobileMenuOpen && (
+        <div className="sm:hidden border-b border-[var(--border)] bg-[var(--bg-primary)] px-4 py-2 flex flex-col gap-1 z-40">
+          {workspaces.map((ws) => (
+            <Link
+              key={ws.slug}
+              href={`/${ws.slug}`}
+              onClick={() => setMobileMenuOpen(false)}
+              className={`px-3 py-2 rounded-lg text-sm transition-all duration-150 ${
+                currentSlug === ws.slug
+                  ? "bg-[var(--accent-subtle)] text-[var(--accent-hover)] font-medium"
+                  : "text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]"
+              }`}
+            >
+              {ws.name}
+            </Link>
+          ))}
+        </div>
+      )}
 
       <main className="flex-1 overflow-hidden">{children}</main>
     </div>

@@ -273,7 +273,7 @@ export default function ProjectSettingsPage() {
             </div>
           ))}
         </div>
-        <form onSubmit={addState} className="flex gap-2">
+        <form onSubmit={addState} className="flex flex-col sm:flex-row gap-2">
           <input
             type="text"
             value={newStateName}
@@ -419,7 +419,7 @@ export default function ProjectSettingsPage() {
           ))}
         </div>
         <form onSubmit={addTemplate} className="space-y-2">
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             <input
               type="text"
               value={newTmplName}
@@ -481,7 +481,7 @@ export default function ProjectSettingsPage() {
           ))}
         </div>
         <form onSubmit={addRule} className="space-y-2">
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             <input
               type="text"
               value={newRuleName}
@@ -538,7 +538,7 @@ export default function ProjectSettingsPage() {
               />
             )}
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             <select
               value={newRuleAction}
               onChange={(e) => { setNewRuleAction(e.target.value); setNewRuleConfigValue(""); setNewRuleNotifyMessage(""); setNewRuleLinkedTitle(""); }}
@@ -757,14 +757,14 @@ export default function ProjectSettingsPage() {
           }}
           className="space-y-2"
         >
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             <input type="text" value={newSprintName} onChange={(e) => setNewSprintName(e.target.value)} placeholder="Sprint name" required className="input-base flex-1" />
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             <input type="date" value={newSprintStart} onChange={(e) => setNewSprintStart(e.target.value)} required className="input-base flex-1" />
             <input type="date" value={newSprintEnd} onChange={(e) => setNewSprintEnd(e.target.value)} required className="input-base flex-1" />
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             <input type="text" value={newSprintGoal} onChange={(e) => setNewSprintGoal(e.target.value)} placeholder="Sprint goal (optional)" className="input-base flex-1" />
             <button type="submit" className="btn-primary">Add</button>
           </div>
@@ -819,7 +819,7 @@ export default function ProjectSettingsPage() {
             setProjectMembers([...projectMembers, pm]);
             setNewMemberEmail("");
           }}
-          className="flex gap-2"
+          className="flex flex-col sm:flex-row gap-2"
         >
           <input type="email" value={newMemberEmail} onChange={(e) => setNewMemberEmail(e.target.value)} placeholder="Email" required className="input-base flex-1" />
           <select value={newMemberRole} onChange={(e) => setNewMemberRole(e.target.value)} className="input-base w-auto">

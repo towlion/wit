@@ -17,7 +17,7 @@ export default function ShortcutHelp({ onClose }: ShortcutHelpProps) {
       <div className="absolute inset-0 bg-black/60 animate-fade-in" />
       <div
         ref={dialogRef}
-        className="relative bg-[var(--bg-primary)] border border-[var(--border)] rounded-2xl shadow-2xl shadow-black/40 w-full max-w-sm p-5 animate-fade-in"
+        className="relative bg-[var(--bg-primary)] border border-[var(--border)] rounded-2xl shadow-2xl shadow-black/40 w-full max-w-[calc(100vw-2rem)] sm:max-w-sm p-5 animate-fade-in"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">

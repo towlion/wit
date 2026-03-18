@@ -264,13 +264,13 @@ export default function ProjectBoardPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between px-4 py-2.5 border-b border-[var(--border)] shrink-0 bg-[var(--bg-primary)]/50 backdrop-blur-sm">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-4 py-2.5 border-b border-[var(--border)] shrink-0 bg-[var(--bg-primary)]/50 backdrop-blur-sm">
+        <div className="flex items-center gap-3 flex-wrap">
           <FilterBar filters={filters} onChange={handleFiltersChange} labels={labels} states={states} members={workspace?.members || []} basePath={basePath} />
-          <div className="flex items-center rounded-lg border border-[var(--border)] overflow-hidden">
+          <div className="flex items-center rounded-lg border border-[var(--border)] overflow-x-auto">
             <button
               onClick={() => setViewMode("board")}
-              className={`text-[10px] px-2.5 py-1.5 font-medium transition-colors ${
+              className={`text-[10px] px-2.5 py-1.5 font-medium transition-colors whitespace-nowrap ${
                 viewMode === "board"
                   ? "bg-[var(--accent-subtle)] text-[var(--accent-hover)]"
                   : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
@@ -280,7 +280,7 @@ export default function ProjectBoardPage() {
             </button>
             <button
               onClick={() => setViewMode("calendar")}
-              className={`text-[10px] px-2.5 py-1.5 font-medium transition-colors ${
+              className={`text-[10px] px-2.5 py-1.5 font-medium transition-colors whitespace-nowrap ${
                 viewMode === "calendar"
                   ? "bg-[var(--accent-subtle)] text-[var(--accent-hover)]"
                   : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
@@ -290,7 +290,7 @@ export default function ProjectBoardPage() {
             </button>
             <button
               onClick={() => setViewMode("dependencies")}
-              className={`text-[10px] px-2.5 py-1.5 font-medium transition-colors ${
+              className={`text-[10px] px-2.5 py-1.5 font-medium transition-colors whitespace-nowrap ${
                 viewMode === "dependencies"
                   ? "bg-[var(--accent-subtle)] text-[var(--accent-hover)]"
                   : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
@@ -300,7 +300,7 @@ export default function ProjectBoardPage() {
             </button>
             <button
               onClick={() => setViewMode("timeline")}
-              className={`text-[10px] px-2.5 py-1.5 font-medium transition-colors ${
+              className={`text-[10px] px-2.5 py-1.5 font-medium transition-colors whitespace-nowrap ${
                 viewMode === "timeline"
                   ? "bg-[var(--accent-subtle)] text-[var(--accent-hover)]"
                   : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
@@ -310,7 +310,7 @@ export default function ProjectBoardPage() {
             </button>
             <button
               onClick={() => setViewMode("backlog")}
-              className={`text-[10px] px-2.5 py-1.5 font-medium transition-colors ${
+              className={`text-[10px] px-2.5 py-1.5 font-medium transition-colors whitespace-nowrap ${
                 viewMode === "backlog"
                   ? "bg-[var(--accent-subtle)] text-[var(--accent-hover)]"
                   : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
@@ -320,7 +320,7 @@ export default function ProjectBoardPage() {
             </button>
             <button
               onClick={() => setViewMode("table")}
-              className={`text-[10px] px-2.5 py-1.5 font-medium transition-colors ${
+              className={`text-[10px] px-2.5 py-1.5 font-medium transition-colors whitespace-nowrap ${
                 viewMode === "table"
                   ? "bg-[var(--accent-subtle)] text-[var(--accent-hover)]"
                   : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
@@ -334,7 +334,7 @@ export default function ProjectBoardPage() {
               <select
                 value={boardSettings.swimlane || ""}
                 onChange={(e) => updateBoardSettings({ ...boardSettings, swimlane: (e.target.value || null) as BoardSettings["swimlane"] })}
-                className="input-base text-[10px] w-auto py-1.5"
+                className="input-base text-[10px] w-auto py-1.5 hidden sm:block"
               >
                 <option value="">No swimlanes</option>
                 <option value="priority">By priority</option>
@@ -345,7 +345,7 @@ export default function ProjectBoardPage() {
                 <select
                   value={sprintFilter}
                   onChange={(e) => setSprintFilter(e.target.value ? parseInt(e.target.value) : "")}
-                  className="input-base text-[10px] w-auto py-1.5"
+                  className="input-base text-[10px] w-auto py-1.5 hidden sm:block"
                 >
                   <option value="">All sprints</option>
                   {sprints.map((s) => (
@@ -358,7 +358,7 @@ export default function ProjectBoardPage() {
         </div>
         <div className="flex items-center gap-2">
           {presence.length > 0 && (
-            <div className="flex items-center gap-1 mr-1">
+            <div className="hidden sm:flex items-center gap-1 mr-1">
               <div className="flex -space-x-1.5">
                 {presence.slice(0, 5).map((p) => (
                   <div
@@ -382,11 +382,11 @@ export default function ProjectBoardPage() {
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
-            <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[var(--bg-tertiary)] border border-[var(--border-subtle)]">Cmd+K</kbd>
+            <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[var(--bg-tertiary)] border border-[var(--border-subtle)] hidden sm:inline">Cmd+K</kbd>
           </button>
           <button
             onClick={() => setShowShortcuts(true)}
-            className="text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors px-2 py-1.5 rounded-lg hover:bg-[var(--bg-tertiary)]"
+            className="hidden sm:block text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors px-2 py-1.5 rounded-lg hover:bg-[var(--bg-tertiary)]"
             title="Keyboard shortcuts"
           >
             <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[var(--bg-tertiary)] border border-[var(--border-subtle)]">?</kbd>
@@ -400,7 +400,7 @@ export default function ProjectBoardPage() {
           )}
           <Link
             href={`/${wsSlug}/${projectSlug}/insights`}
-            className="text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors px-2.5 py-1.5 rounded-lg hover:bg-[var(--bg-tertiary)] flex items-center gap-1"
+            className="hidden sm:flex text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors px-2.5 py-1.5 rounded-lg hover:bg-[var(--bg-tertiary)] items-center gap-1"
           >
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
