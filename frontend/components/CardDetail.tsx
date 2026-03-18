@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { api } from "@/lib/api";
+import { useToast } from "@/lib/toast";
 import type { DependencyItem, Subtask, WatchStatus, WorkItem, WorkflowState } from "@/lib/types";
 import ActivityFeed from "./ActivityFeed";
 import AttachmentList from "./AttachmentList";
@@ -49,6 +50,9 @@ interface AttachmentItem {
 const PRIORITIES = ["low", "medium", "high", "urgent"];
 
 export default function CardDetail({ item, basePath, wsSlug, onClose, onUpdate, onClone }: CardDetailProps) {
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [title, setTitle] = useState(item.title);
   const [description, setDescription] = useState(item.description || "");
   const [priority, setPriority] = useState(item.priority);
@@ -84,42 +88,66 @@ export default function CardDetail({ item, basePath, wsSlug, onClose, onUpdate, 
 
   const itemPath = `${basePath}/items/${item.item_number}`;
 
-  useEffect(() => {
-    api.get<WorkflowState[]>(`${basePath}/states`).then(setStates);
-    api.get<FieldDef[]>(`${basePath}/fields`).then(setFieldDefs);
-    api.get<FieldVal[]>(`${itemPath}/fields`).then((vals) => {
+  const loadPanelData = useCallback(() => {
+    setLoading(true);
+    setLoadError(false);
+    Promise.all([
+      api.get<WorkflowState[]>(`${basePath}/states`),
+      api.get<FieldDef[]>(`${basePath}/fields`),
+      api.get<FieldVal[]>(`${itemPath}/fields`),
+      api.get<AttachmentItem[]>(`${itemPath}/attachments`),
+      api.get<WatchStatus>(`${itemPath}/watch`),
+      api.get<Subtask[]>(`${itemPath}/subtasks`),
+      api.get<{ blocks: DependencyItem[]; blocked_by: DependencyItem[] }>(`${itemPath}/dependencies`),
+    ]).then(([statesData, fieldDefsData, fieldValsData, attachData, watchData, subtasksData, depsData]) => {
+      setStates(statesData);
+      setFieldDefs(fieldDefsData);
       const map: Record<number, FieldVal> = {};
-      for (const v of vals) map[v.field_id] = v;
+      for (const v of fieldValsData) map[v.field_id] = v;
       setFieldValues(map);
+      setAttachments(attachData);
+      setWatchStatus(watchData);
+      setSubtasks(subtasksData);
+      setBlocks(depsData.blocks);
+      setBlockedBy(depsData.blocked_by);
+    }).catch(() => {
+      toast.error("Failed to load item details");
+      setLoadError(true);
+    }).finally(() => {
+      setLoading(false);
     });
-    api.get<AttachmentItem[]>(`${itemPath}/attachments`).then(setAttachments);
-    api.get<WatchStatus>(`${itemPath}/watch`).then(setWatchStatus);
-    api.get<Subtask[]>(`${itemPath}/subtasks`).then(setSubtasks);
-    api.get<{ blocks: DependencyItem[]; blocked_by: DependencyItem[] }>(`${itemPath}/dependencies`).then((deps) => {
-      setBlocks(deps.blocks);
-      setBlockedBy(deps.blocked_by);
-    });
-  }, [basePath, itemPath]);
+  }, [basePath, itemPath, toast]);
+
+  useEffect(() => { loadPanelData(); }, [loadPanelData]);
 
   async function handleSave() {
     setSaving(true);
-    await onUpdate({
-      title,
-      description: description || null,
-      priority,
-      status_id: statusId,
-      due_date: dueDate || null,
-      story_points: storyPoints ? parseInt(storyPoints) : null,
-    } as Partial<WorkItem>);
-    setSaving(false);
+    try {
+      await onUpdate({
+        title,
+        description: description || null,
+        priority,
+        status_id: statusId,
+        due_date: dueDate || null,
+        story_points: storyPoints ? parseInt(storyPoints) : null,
+      } as Partial<WorkItem>);
+    } catch {
+      toast.error("Failed to save changes");
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function handleFieldChange(
     fieldId: number,
     data: { value_text?: string | null; value_number?: number | null; value_date?: string | null }
   ) {
-    const val = await api.put<FieldVal>(`${itemPath}/fields/${fieldId}`, data);
-    setFieldValues((prev) => ({ ...prev, [fieldId]: val }));
+    try {
+      const val = await api.put<FieldVal>(`${itemPath}/fields/${fieldId}`, data);
+      setFieldValues((prev) => ({ ...prev, [fieldId]: val }));
+    } catch {
+      toast.error("Failed to update field");
+    }
   }
 
   async function handleUpload(file: File) {
@@ -128,61 +156,93 @@ export default function CardDetail({ item, basePath, wsSlug, onClose, onUpdate, 
   }
 
   async function handleDeleteAttachment(id: number) {
-    await api.delete(`${itemPath}/attachments/${id}`);
-    setAttachments((prev) => prev.filter((a) => a.id !== id));
+    try {
+      await api.delete(`${itemPath}/attachments/${id}`);
+      setAttachments((prev) => prev.filter((a) => a.id !== id));
+    } catch {
+      toast.error("Failed to delete attachment");
+    }
   }
 
   async function handleToggleWatch() {
-    if (watchStatus.watching) {
-      const res = await api.delete(`${itemPath}/watch`) as unknown as WatchStatus;
-      setWatchStatus(res);
-    } else {
-      const res = await api.post<WatchStatus>(`${itemPath}/watch`);
-      setWatchStatus(res);
+    try {
+      if (watchStatus.watching) {
+        const res = await api.delete(`${itemPath}/watch`) as unknown as WatchStatus;
+        setWatchStatus(res);
+      } else {
+        const res = await api.post<WatchStatus>(`${itemPath}/watch`);
+        setWatchStatus(res);
+      }
+    } catch {
+      toast.error("Failed to update watch status");
     }
   }
 
   async function handleAddDependency() {
     const num = parseInt(depInput);
     if (!num) return;
-    if (depType === "blocks") {
-      await api.post(`${itemPath}/dependencies`, { blocks_item_number: num });
-    } else {
-      await api.post(`${basePath}/items/${num}/dependencies`, { blocks_item_number: item.item_number });
+    try {
+      if (depType === "blocks") {
+        await api.post(`${itemPath}/dependencies`, { blocks_item_number: num });
+      } else {
+        await api.post(`${basePath}/items/${num}/dependencies`, { blocks_item_number: item.item_number });
+      }
+      const deps = await api.get<{ blocks: DependencyItem[]; blocked_by: DependencyItem[] }>(`${itemPath}/dependencies`);
+      setBlocks(deps.blocks);
+      setBlockedBy(deps.blocked_by);
+      setDepInput("");
+    } catch {
+      toast.error("Failed to add dependency");
     }
-    const deps = await api.get<{ blocks: DependencyItem[]; blocked_by: DependencyItem[] }>(`${itemPath}/dependencies`);
-    setBlocks(deps.blocks);
-    setBlockedBy(deps.blocked_by);
-    setDepInput("");
   }
 
   async function handleRemoveDependency(relatedNumber: number) {
-    await api.delete(`${itemPath}/dependencies/${relatedNumber}`);
-    setBlocks((prev) => prev.filter((d) => d.item_number !== relatedNumber));
-    setBlockedBy((prev) => prev.filter((d) => d.item_number !== relatedNumber));
+    try {
+      await api.delete(`${itemPath}/dependencies/${relatedNumber}`);
+      setBlocks((prev) => prev.filter((d) => d.item_number !== relatedNumber));
+      setBlockedBy((prev) => prev.filter((d) => d.item_number !== relatedNumber));
+    } catch {
+      toast.error("Failed to remove dependency");
+    }
   }
 
   async function handleAddSubtask() {
     if (!newSubtaskTitle.trim()) return;
-    const st = await api.post<Subtask>(`${itemPath}/subtasks`, { title: newSubtaskTitle.trim() });
-    setSubtasks((prev) => [...prev, st]);
-    setNewSubtaskTitle("");
+    try {
+      const st = await api.post<Subtask>(`${itemPath}/subtasks`, { title: newSubtaskTitle.trim() });
+      setSubtasks((prev) => [...prev, st]);
+      setNewSubtaskTitle("");
+    } catch {
+      toast.error("Failed to add subtask");
+    }
   }
 
   async function handleToggleSubtask(subtask: Subtask) {
-    const updated = await api.patch<Subtask>(`${itemPath}/subtasks/${subtask.id}`, { completed: !subtask.completed });
-    setSubtasks((prev) => prev.map((s) => s.id === subtask.id ? updated : s));
+    try {
+      const updated = await api.patch<Subtask>(`${itemPath}/subtasks/${subtask.id}`, { completed: !subtask.completed });
+      setSubtasks((prev) => prev.map((s) => s.id === subtask.id ? updated : s));
+    } catch {
+      toast.error("Failed to update subtask");
+    }
   }
 
   async function handleDeleteSubtask(subtaskId: number) {
-    await api.delete(`${itemPath}/subtasks/${subtaskId}`);
-    setSubtasks((prev) => prev.filter((s) => s.id !== subtaskId));
+    try {
+      await api.delete(`${itemPath}/subtasks/${subtaskId}`);
+      setSubtasks((prev) => prev.filter((s) => s.id !== subtaskId));
+    } catch {
+      toast.error("Failed to delete subtask");
+    }
   }
 
   async function handleClone() {
-    const cloned = await api.post<WorkItem>(`${basePath}/items/${item.item_number}/clone`);
-    onClone?.(cloned);
-    onClose();
+    try {
+      const cloned = await api.post<WorkItem>(`${basePath}/items/${item.item_number}/clone`);
+      onClone?.(cloned);
+      onClose();
+    } catch {
+      toast.error("Failed to clone item");
+    }
   }
 
   const subtaskCompleted = subtasks.filter((s) => s.completed).length;
@@ -243,6 +303,39 @@ export default function CardDetail({ item, basePath, wsSlug, onClose, onUpdate, 
             </button>
           </div>
 
+          {loading ? (
+            <div className="space-y-6 animate-pulse">
+              <div className="h-6 bg-[var(--bg-tertiary)] rounded-lg w-3/4" />
+              <div className="h-px bg-[var(--border)]" />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <div className="h-3 bg-[var(--bg-tertiary)] rounded w-16" />
+                  <div className="h-9 bg-[var(--bg-tertiary)] rounded-xl" />
+                </div>
+                <div className="space-y-2">
+                  <div className="h-3 bg-[var(--bg-tertiary)] rounded w-16" />
+                  <div className="h-9 bg-[var(--bg-tertiary)] rounded-xl" />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className="h-3 bg-[var(--bg-tertiary)] rounded w-20" />
+                <div className="h-9 bg-[var(--bg-tertiary)] rounded-xl" />
+              </div>
+              <div className="h-px bg-[var(--border)]" />
+              <div className="space-y-2">
+                <div className="h-3 bg-[var(--bg-tertiary)] rounded w-24" />
+                <div className="h-24 bg-[var(--bg-tertiary)] rounded-xl" />
+              </div>
+            </div>
+          ) : loadError ? (
+            <div className="flex flex-col items-center gap-3 py-12 text-center">
+              <span className="text-sm text-[var(--text-muted)]">Failed to load item details</span>
+              <button onClick={loadPanelData} className="btn-primary text-sm px-4 py-2">
+                Retry
+              </button>
+            </div>
+          ) : (
+            <>
           {/* Title */}
           <input
             type="text"
@@ -592,6 +685,8 @@ export default function CardDetail({ item, basePath, wsSlug, onClose, onUpdate, 
             <label className="block text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-3">Activity</label>
             <ActivityFeed basePath={basePath} itemNumber={item.item_number} wsSlug={wsSlug} />
           </div>
+            </>
+          )}
         </div>
       </div>
     </div>
