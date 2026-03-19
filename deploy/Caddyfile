@@ -1,20 +1,20 @@
 {$APP_DOMAIN} {
     handle /api/* {
-        reverse_proxy wit-app-1:8000
+        reverse_proxy app:8000
     }
     handle /health {
-        reverse_proxy wit-app-1:8000
+        reverse_proxy app:8000
     }
     handle /docs {
-        reverse_proxy wit-app-1:8000
+        reverse_proxy app:8000
     }
     handle /redoc {
-        reverse_proxy wit-app-1:8000
+        reverse_proxy app:8000
     }
     handle /openapi.json {
-        reverse_proxy wit-app-1:8000
+        reverse_proxy app:8000
     }
     handle {
-        reverse_proxy wit-frontend-1:3000
+        reverse_proxy frontend:3000
     }
 }
